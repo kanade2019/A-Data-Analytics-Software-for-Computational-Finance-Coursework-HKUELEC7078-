@@ -31,7 +31,6 @@ class Main_Window(tk.Tk):
             self.tv.column(col, anchor="center", width=self.tv.winfo_width() // len(self.Stock_columns))
         self.yscrollbar.config(command=self.tv.yview)
         self.stki.load_from_csv("Stock Quotes.csv")
-
         # Create a frame show the figure
         # self.stkf.load_data_csv("Boeing")
         # self.stkf.Draw()
