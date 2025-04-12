@@ -12,6 +12,21 @@ class DrawFigure:
         self.start_index = None
         self.end_index = None
         self.data = None
+        self.__bind_events()
+    
+    def __bind_events(self):
+        # 滚轮事件
+        self.frame_figure.bind("<MouseWheel>", self.__scroll_event)
+
+    def __scroll_event(self, event):
+        """Scroll event to zoom in/out the figure."""
+        if event.delta > 0:
+            self.start_index = max(0, self.start_index - 1)
+            self.end_index = min(len(self.data), self.end_index + 1)
+        else:
+            self.start_index = min(len(self.data), self.start_index + 1)
+            self.end_index = max(0, self.end_index - 1)
+        self.Draw()
 
     def load_data_csv(self, company_name):
         """Load data into the figure."""
