@@ -53,9 +53,9 @@ class DrawFigure:
         if x_index < 0 or x_index >= len(self.data):
             return
         
-        print(self.data['Date'][x_index], self.data['Price'][x_index],
-              self.data['Open'][x_index],
-              self.data['High'][x_index], self.data['Low'][x_index])
+        # print(self.data['Date'][x_index], self.data['Price'][x_index],
+        #       self.data['Open'][x_index],
+        #       self.data['High'][x_index], self.data['Low'][x_index])
 
     def __click_event(self, event):
         self.dragging = True
