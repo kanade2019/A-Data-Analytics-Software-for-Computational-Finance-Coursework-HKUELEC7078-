@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tkinter as tk
+from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.collections import PatchCollection
@@ -17,10 +18,17 @@ class Figures(tk.Frame):
         self.stock_code = stock_code
         self.start_index = None
         self.end_index = None
-        self.data = None
+        self.data = Data()
+
+        self.loading_mask = tk.Frame(self, background="gray")
+        self.loading_text = ttk.Label(self.loading_mask, text="Loading...", background="gray", foreground='white', font=("Arial", 20), justify='center')
+        # self.loading_mask.lift()
+        self.loading_mask.place_forget()
+        self.loading_text.place(relx=0.5, rely=0.5, anchor="center")
         
-        self.frame_Kline = tk.Frame(self)
-        self.frame_Kline.place(relx=0, rely=0, relwidth=1, relheight=1, anchor="nw")
+        self.frame_Kline = FigureCanvasTkAgg(self.data.kline, master=self)
+        self.frame_Kline.get_tk_widget().place(relx=0, rely=0, relwidth=1, relheight=1, anchor="nw")
+        self.frame_Kline.draw()
 
         # self.fig = plt.Figure(figsize=(25, 28), dpi=100, facecolor="white")
         # self.fig.subplots_adjust(left=0.075, right=0.975, top=0.95, bottom=0.175, hspace=0.4, wspace=0.4)
@@ -38,29 +46,36 @@ class Figures(tk.Frame):
         # self.dragging = False
         # self.drag_start_x = None
         
-    #     self.__bind_events()
-    
-    def refresh(self):
-        self.data = Data(self.stock_code)
+        self.__bind_events()
+    def show_mask(self):
+        self.loading_mask.place(relx=0, rely=0, relwidth=1, relheight=1, anchor="nw")
+        self.loading_mask.lift()
+
+    def hide_mask(self):
+        self.loading_mask.place_forget()
+
+    def new_data(self):
+        if self.stock_code is None:
+            return
+        if self.frame_Kline is not None:
+            self.frame_Kline.get_tk_widget().delete('ALL')
         self.end_index = self.data.data['<DATE>'].max()
-        self.start_index = self.end_index - pd.Timedelta(days=90)
-        if self.frame_Kline.canvas is not None:
-            self.frame_Kline.canvas.get_tk_widget().destroy()
-        # find min max about y axis in the selected period
-        minmax  = [self.data.data[(self.data.data['<DATE>'] >= self.start_index) & (self.data.data['<DATE>'] <= self.end_index)]['<LOW>'].min(), 
-                    self.data.data[(self.data.data['<DATE>'] >= self.start_index) & (self.data.data['<DATE>'] <= self.end_index)]['<HIGH>'].max()]
-        self.data.kline_ax.set_xlim(self.start_index, self.end_index)
-        self.data.kline_ax.set_ylim(minmax[0] - 0.1*(minmax[1] - minmax[0]), minmax[1] + 0.1*(minmax[1] - minmax[0]))
-        self.frame_Kline.canvas = FigureCanvasTkAgg(figure=self.data.kline, master=self.frame_Kline)
-        self.frame_Kline.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        self.frame_Kline.canvas.draw()
-    # def __bind_events(self):
-    #     # 滚轮事件
-    #     self.frame_Kline.canvas.get_tk_widget().bind("<MouseWheel>", self.__scroll_event)
-    #     self.frame_Kline.canvas.get_tk_widget().bind("<Button-1>", self.__click_event)
-    #     self.frame_Kline.canvas.get_tk_widget().bind("<B1-Motion>", self.__drag_event)
-    #     self.frame_Kline.canvas.get_tk_widget().bind("<ButtonRelease-1>", self.__release_event)
-    #     self.frame_Kline.canvas.get_tk_widget().bind("<Motion>", self.__motion_event)
+        self.start_index = self.end_index - pd.Timedelta(days=30)
+        
+        
+        # draw matplotlib figure in canvas
+        # self.frame_Kline = FigureCanvasTkAgg(self.data.kline, master=self)
+        # self.frame_Kline.figure = self.data.kline
+        self.frame_Kline.get_tk_widget().place(relx=0, rely=0, relwidth=1, relheight=1, anchor="nw")
+        self.__refresh_figure()
+        self.loading_mask.place_forget()
+
+    def __bind_events(self):
+        self.frame_Kline.get_tk_widget().bind("<MouseWheel>", self.__scroll_event)
+        # self.frame_Kline.canvas.get_tk_widget().bind("<Button-1>", self.__click_event)
+        # self.frame_Kline.canvas.get_tk_widget().bind("<B1-Motion>", self.__drag_event)
+        # self.frame_Kline.canvas.get_tk_widget().bind("<ButtonRelease-1>", self.__release_event)
+        # self.frame_Kline.canvas.get_tk_widget().bind("<Motion>", self.__motion_event)
 
     # def __motion_event(self, event):
     #     if self.data is None or len(self.data) == 0:
@@ -72,9 +87,9 @@ class Figures(tk.Frame):
     #     if x_index < 0 or x_index >= len(self.data):
     #         return
         
-    #     # print(self.data['Date'][x_index], self.data['Price'][x_index],
-    #     #       self.data['Open'][x_index],
-    #     #       self.data['High'][x_index], self.data['Low'][x_index])
+        # print(self.data['Date'][x_index], self.data['Price'][x_index],
+        #       self.data['Open'][x_index],
+        #       self.data['High'][x_index], self.data['Low'][x_index])
 
     # def __click_event(self, event):
     #     self.dragging = True
@@ -101,32 +116,32 @@ class Figures(tk.Frame):
     #     self.drag_start_x = None
     #     self.Draw()
 
-    # def __scroll_event(self, event):
-    #     """Scroll event to zoom in/out the figure."""
-    #     # get real mouse position
-    #     x = event.x
-    #     y = event.y
-    #     # get relative position
-    #     x = (x - 0.075 * self.frame_Kline.winfo_width()) / (0.9 * self.frame_Kline.winfo_width())
-    #     y = (y - 0.05 * self.frame_Kline.winfo_height()) / (0.8 * self.frame_Kline.winfo_height())
-    #     # print(x, y)
+    def __scroll_event(self, event):
+        """Scroll event to zoom in/out the figure."""
+        if self.data.data is None:
+            return
+        x = event.x / self.frame_Kline.winfo_width()
+        center_day = self.start_index + pd.Timedelta(days=x * (self.end_index - self.start_index).days)
+        
+        # get real mouse position
+        # x = event.x / self.frame_Kline.winfo_width()
+        # print(x, y)
 
-    #     if event.delta < 0:
-    #         if self.start_index <= (1-x):
-    #             self.end_index = min(len(self.data), self.end_index + (1-self.start_index))
-    #             self.start_index = 0.0
-    #         elif (len(self.data) - self.end_index) <= x:
-    #             self.start_index = max(0, self.start_index - (1-(len(self.data) - self.end_index)))
-    #             self.end_index = float(len(self.data))
-    #         else:
-    #             self.start_index = max(0, self.start_index - 1 + x)
-    #             self.end_index = min(len(self.data), self.end_index + x)
-    #     else:
-    #         self.start_index = min(len(self.data), self.start_index + 1 - x, self.end_index-2)
-    #         self.end_index = max(0, self.end_index - x, self.start_index+2)
-    #     # print(self.start_index, self.end_index)
-    #     self.Draw()
+        if event.delta < 0:
+            self.start_index = min(self.start_index + pd.Timedelta(days=1), self.end_index - pd.Timedelta(days=1))
+            self.end_index = max(self.start_index + pd.Timedelta(days=1), self.end_index - pd.Timedelta(days=1))
+        else:
+            self.start_index = max(self.start_index - pd.Timedelta(days=1), self.data.data['<DATE>'].min())
+            self.end_index = min(self.end_index - pd.Timedelta(days=1), self.data.data['<DATE>'].max())
+        self.__refresh_figure()
 
+    def __refresh_figure(self):
+        minmax  = [self.data.data[(self.data.data['<DATE>'] >= self.start_index) & (self.data.data['<DATE>'] <= self.end_index)]['<LOW>'].min(), 
+                    self.data.data[(self.data.data['<DATE>'] >= self.start_index) & (self.data.data['<DATE>'] <= self.end_index)]['<HIGH>'].max()]
+        self.data.kline_ax.set_xlim(self.start_index-pd.Timedelta(days=1), self.end_index+pd.Timedelta(days=1))
+        self.data.kline_ax.set_ylim(minmax[0] - 0.1*(minmax[1] - minmax[0]), minmax[1] + 0.1*(minmax[1] - minmax[0]))
+        
+        self.frame_Kline.draw()
     # def load_data_csv(self, ticker_code):
     #     """Load data into the figure."""
     #     """Date","Price","Open","High","Low","Vol.","Change %"""

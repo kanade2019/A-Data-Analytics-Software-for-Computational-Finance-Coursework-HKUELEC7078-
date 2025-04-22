@@ -10,14 +10,20 @@ class Data():
         self.stock_code = stock_code
         self.data = None
         mplstyle.use('fast')
-        if stock_code is not None:
-            self.data = pd.read_csv(f"datas/d_hk_txt/data/daily/hk/hkex stocks/{stock_code}.txt")
-            self.data["<DATE>"] = pd.to_datetime(self.data["<DATE>"], format="%Y%m%d")
         self.kline = plt.Figure(figsize=(10, 6))
         self.kline_ax = self.kline.add_subplot(111)
+        self.kline_ax.set_position([0,0,1,1])
         self.kline_ax.grid()
-        self.__draw_kline()
+        # self.kline_ax.xaxis.set_visible(False)
+        # self.kline_ax.yaxis.set_visible(False)
 
+    def load_data_csv(self):
+        if self.stock_code is not None:
+            self.data = pd.read_csv(f"datas/d_hk_txt/data/daily/hk/hkex stocks/{self.stock_code}.txt")
+            self.data["<DATE>"] = pd.to_datetime(self.data["<DATE>"], format="%Y%m%d")
+            
+        self.__draw_kline()
+        
     def __draw_kline(self):
         if self.data is None:
             return  

@@ -16,7 +16,7 @@ class Main_Window(tk.Tk):
         self.geometry("800x600")
         self.configure(bg="white")
 
-        self.frame_left = tk.Frame(self)
+        self.frame_left = ttk.Frame(self)
         self.frame_left.place(relx=0.025, rely=0.05, relwidth=0.3, relheight=0.9, anchor="nw")
         self.frame_table = StockInfo(self.frame_left)
         self.frame_table.place(relx=0, rely=0, relwidth=1, relheight=0.75, anchor="nw")
@@ -24,7 +24,7 @@ class Main_Window(tk.Tk):
         # self.frame_info.place(relx=0, rely=0.5, relwidth=1, relheight=0.25, anchor="nw")
         self.frame_info.place_forget()
         self.frame_info.hidden = True
-        self.frame_indicators = tk.Frame(self.frame_left)
+        self.frame_indicators = ttk.Frame(self.frame_left)
         self.frame_indicators.place(relx=0, rely=0.75, relwidth=1, relheight=0.25, anchor="nw")
 
         self.frame_right = Figures(self)
@@ -54,7 +54,7 @@ class Main_Window(tk.Tk):
             end_heights=[0.75, 0],
             start_y=[0, 0.5],
             end_y=[0, 0.75],
-            duration=300,  # 毫秒
+            duration=100,  # 毫秒
             easing="quad_out"
         )
 
@@ -137,9 +137,13 @@ class Main_Window(tk.Tk):
             # self.frame_right.load_data_csv(ticker_code)
             # self.frame_right.Draw()
             def load_data():
+                self.after(0, self.frame_right.show_mask)
                 self.frame_right.stock_code = ticker_code
+                self.frame_right.data.stock_code = ticker_code
+                self.frame_right.data.load_data_csv()
                 # 在主线程中更新UI
-                self.after(0, self.frame_right.refresh)
+                self.after(0, self.frame_right.new_data)
+                self.after(0, self.frame_right.hide_mask)
             
             # 启动数据加载线程
             threading.Thread(target=load_data, daemon=True).start()
@@ -161,7 +165,7 @@ class Main_Window(tk.Tk):
                 end_heights=[0.5, 0.25],
                 start_y=[0, 0.75],
                 end_y=[0, 0.5],
-                duration=300,  # 毫秒
+                duration=100,  # 毫秒
                 easing="quad_out"
             )
             self._animation_in_progress = False

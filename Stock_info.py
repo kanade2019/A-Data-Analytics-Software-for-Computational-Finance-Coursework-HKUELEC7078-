@@ -7,24 +7,27 @@ import os
 
 class StockInfo(tk.Frame):
     def __init__(self, master=None):
-        super().__init__(master, bg="#e0e0e0")
+        super().__init__(master)
         self.master = master
         self.my_font = tkFont.Font(family="Calibri", size=10)
         self.style = ttk.Style()
         self.Stock_columns = ["Ticker","Chg.","Chg. %","Close","Open","High","Low","Vol."]
         self.style.configure("Treeview.Heading", font=tkFont.Font(family="Calibri", size=11, weight="bold"))
         self.treeview = ttk.Treeview(master=self, columns=self.Stock_columns, show="headings", height=self.winfo_height()*0.85)
-        self.vsbar = tk.Scrollbar(self, orient="vertical", command=self.treeview.yview)
-        self.hsbar = tk.Scrollbar(self, orient="horizontal", command=self.treeview.xview)
+        self.vsbar = ttk.Scrollbar(self, orient="vertical", command=self.treeview.yview)
+        self.hsbar = ttk.Scrollbar(self, orient="horizontal", command=self.treeview.xview)
 
-        self.search_entry = tk.Entry(self, font=self.my_font, width=self.winfo_width(), justify="left")
+        self.search_entry = ttk.Entry(self, font=self.my_font, width=self.winfo_width(), justify="left")
         self.treeview.configure(yscrollcommand=self.vsbar.set, xscrollcommand=self.hsbar.set)
         
-        self.search_entry.place(relx=0, rely=0, relwidth=1, relheight=0.1, anchor="nw")
-        self.treeview.place(relx=0, rely=0.1, relwidth=0.95, relheight=0.85, anchor="nw")  # 从0.85改为0.8
-        self.vsbar.place(relx=1, rely=0.1, relwidth=0.05, relheight=0.85, anchor="ne")     # 从0.85改为0.8
-        self.hsbar.place(relx=0, rely=1, relwidth=0.95, relheight=0.05, anchor="sw")    # 从0.95改为0.9
-
+        # self.search_entry.place(relx=0, rely=0, relwidth=1, height=35, anchor="nw")
+        # self.treeview.place(relx=0, rely=0.1, relwidth=0.95, relheight=0.85, anchor="nw")
+        # self.vsbar.place(relx=1, rely=0.1, relwidth=0.05, relheight=0.85, anchor="ne")
+        # self.hsbar.place(relx=0, rely=1, relwidth=0.95, relheight=0.05, anchor="sw")
+        self.search_entry.pack(side="top", fill="x")
+        self.vsbar.pack(side="right", fill="y")
+        self.hsbar.pack(side="bottom", fill="x")
+        self.treeview.pack(side="top", fill="both", expand=True)
 
         self.data = pd.DataFrame(columns=self.Stock_columns)
         self.column_widths = [50 for _ in range(len(self.data.columns))]
