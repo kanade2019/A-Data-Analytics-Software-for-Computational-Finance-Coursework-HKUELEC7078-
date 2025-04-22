@@ -76,7 +76,8 @@ class Main_Window(tk.Tk):
             on_complete: 动画完成时的回调函数
         """
         # 本地变量，不存储在类中
-        steps = int(duration / 16)  # ~60fps
+        fps = 120  # 帧率
+        steps = int(duration / 1000 * fps)  # ~60fps
         step = 0
         
         def _easing_function(t, type="quad_out"):
@@ -109,7 +110,7 @@ class Main_Window(tk.Tk):
                         frame.place_forget()
                 
                 step += 1
-                self.after(16, _animation_step)  # ~60fps
+                self.after(round(1000 / fps), _animation_step)  # ~60fps
             else:
                 # 动画完成
                 if on_complete:
@@ -136,39 +137,42 @@ class Main_Window(tk.Tk):
             # 更新图表
             # self.frame_right.load_data_csv(ticker_code)
             # self.frame_right.Draw()
+            if self.frame_info.hidden:
+                # 防止重复触发
+                if hasattr(self, '_animation_in_progress') and self._animation_in_progress:
+                    return
+                    
+                # 标记动画开始
+                self._animation_in_progress = True
+                self.frame_info.hidden = False  # 显示信息面板
+                self.frame_info.place(relx=0, rely=0.75, relwidth=1, relheight=0, anchor="nw")
+
+                # 开始动画
+                self._animate_frame_transition(
+                    frames=[self.frame_table, self.frame_info],
+                    start_heights=[0.75, 0],
+                    end_heights=[0.5, 0.25],
+                    start_y=[0, 0.75],
+                    end_y=[0, 0.5],
+                    duration=100,  # 毫秒
+                    easing="quad_out"
+                )
+                self._animation_in_progress = False
+
             def load_data():
-                self.after(0, self.frame_right.show_mask)
                 self.frame_right.stock_code = ticker_code
                 self.frame_right.data.stock_code = ticker_code
                 self.frame_right.data.load_data_csv()
                 # 在主线程中更新UI
                 self.after(0, self.frame_right.new_data)
                 self.after(0, self.frame_right.hide_mask)
-            
-            # 启动数据加载线程
-            threading.Thread(target=load_data, daemon=True).start()
+            def start_loading():
+                threading.Thread(target=load_data, daemon=True).start()
 
-        if self.frame_info.hidden:
-            # 防止重复触发
-            if hasattr(self, '_animation_in_progress') and self._animation_in_progress:
-                return
-                
-            # 标记动画开始
-            self._animation_in_progress = True
-            self.frame_info.hidden = False  # 显示信息面板
-            self.frame_info.place(relx=0, rely=0.75, relwidth=1, relheight=0, anchor="nw")
+            if self.frame_right.data.stock_code != ticker_code:
+                self.frame_right.show_mask()
+                self.after(400, start_loading)
 
-            # 开始动画
-            self._animate_frame_transition(
-                frames=[self.frame_table, self.frame_info],
-                start_heights=[0.75, 0],
-                end_heights=[0.5, 0.25],
-                start_y=[0, 0.75],
-                end_y=[0, 0.5],
-                duration=100,  # 毫秒
-                easing="quad_out"
-            )
-            self._animation_in_progress = False
         return
 
 if __name__ == "__main__":
