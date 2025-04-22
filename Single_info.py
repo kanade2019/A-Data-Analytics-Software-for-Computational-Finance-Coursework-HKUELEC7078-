@@ -33,7 +33,7 @@ class SingleInfo(tk.Frame):
         """更新显示的股票信息"""
         self.label_ticker_name.config(text=ticker_name)
         self.label_ticker_code.config(text=ticker_code)
-        self.label_change.config(text="Chg: " + change + '\t' + change2 + '%')
+        self.label_change.config(text="Chg: " + change + '(' + change2 + '%)')
         self.label_open.config(text=f"Open: {open_price}")
         self.label_close.config(text=f"Close: {close_price}")
         self.label_low.config(text=f"Low: {low_price}")

@@ -2,10 +2,12 @@ import tkinter as tk
 import pandas as pd
 from Stock_info import StockInfo
 import tkinter.ttk as ttk
-from draw_figure import DrawFigure
+from draw_figure import Figures
 from Single_info import SingleInfo
 import math
 import time
+from data import Data
+import threading
 
 class Main_Window(tk.Tk):
     def __init__(self):
@@ -25,7 +27,7 @@ class Main_Window(tk.Tk):
         self.frame_indicators = tk.Frame(self.frame_left)
         self.frame_indicators.place(relx=0, rely=0.75, relwidth=1, relheight=0.25, anchor="nw")
 
-        self.frame_right = tk.Frame(self)
+        self.frame_right = Figures(self)
         self.frame_right.place(relx=0.35, rely=0.05, relwidth=0.625, relheight=0.9, anchor="nw")
 
         self.__bind_events()
@@ -33,7 +35,7 @@ class Main_Window(tk.Tk):
     def __bind_events(self):
         self.frame_info.close_button.bind("<Button-1>", self.__close_single_info)
         self.frame_table.treeview.bind("<ButtonRelease-1>", self.__select_company)
-        self.frame_table.search_entry.bind("<KeyRelease>", self.__search)
+        self.frame_table.treeview.bind("<KeyRelease>", self.__select_company)
         return
 
     def __close_single_info(self, event):
@@ -132,6 +134,15 @@ class Main_Window(tk.Tk):
             # 更新信息面板
             self.frame_info.update_info(ticker_name, ticker_code, change, change2, open_price, close_price, low_price, high_price, volume)
             # 更新图表
+            # self.frame_right.load_data_csv(ticker_code)
+            # self.frame_right.Draw()
+            def load_data():
+                self.frame_right.stock_code = ticker_code
+                # 在主线程中更新UI
+                self.after(0, self.frame_right.refresh)
+            
+            # 启动数据加载线程
+            threading.Thread(target=load_data, daemon=True).start()
 
         if self.frame_info.hidden:
             # 防止重复触发
@@ -154,7 +165,6 @@ class Main_Window(tk.Tk):
                 easing="quad_out"
             )
             self._animation_in_progress = False
-
         return
 
 if __name__ == "__main__":
