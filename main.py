@@ -13,7 +13,9 @@ class Main_Window(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Computational Finance")
-        self.geometry("800x600")
+        self.width = 800
+        self.height = 600
+        self.geometry(f"{self.width}x{self.height}")
         self.configure(bg="white")
 
         self.frame_left = ttk.Frame(self)
@@ -66,8 +68,6 @@ class Main_Window(tk.Tk):
     def _animate_frame_transition(self, frames, start_heights, end_heights, start_y, end_y,
                                   duration=300, easing="quad_out", on_complete=None):
         """
-        通用动画函数，避免存储大量状态变量
-        
         参数:
             frames: 要动画的框架列表
             start_heights/end_heights: 起始和结束高度列表
@@ -127,10 +127,10 @@ class Main_Window(tk.Tk):
             ticker_code = self.frame_table.name2code[ticker_name]
             change = self.frame_table.treeview.item(item[0], "value")[1]
             change2 = self.frame_table.treeview.item(item[0], "value")[2]
-            open_price = self.frame_table.treeview.item(item[0], "value")[3]
-            close_price = self.frame_table.treeview.item(item[0], "value")[4]
-            low_price = self.frame_table.treeview.item(item[0], "value")[5]
-            high_price = self.frame_table.treeview.item(item[0], "value")[6]
+            open_price = self.frame_table.treeview.item(item[0], "value")[4]
+            close_price = self.frame_table.treeview.item(item[0], "value")[3]
+            low_price = self.frame_table.treeview.item(item[0], "value")[6]
+            high_price = self.frame_table.treeview.item(item[0], "value")[5]
             volume = self.frame_table.treeview.item(item[0], "value")[7]
             # 更新信息面板
             self.frame_info.update_info(ticker_name, ticker_code, change, change2, open_price, close_price, low_price, high_price, volume)
@@ -159,19 +159,20 @@ class Main_Window(tk.Tk):
                 )
                 self._animation_in_progress = False
 
-            def load_data():
-                self.frame_right.stock_code = ticker_code
-                self.frame_right.data.stock_code = ticker_code
-                self.frame_right.data.load_data_csv()
-                # 在主线程中更新UI
-                self.after(0, self.frame_right.new_data)
-                self.after(0, self.frame_right.hide_mask)
-            def start_loading():
-                threading.Thread(target=load_data, daemon=True).start()
+            # def load_data():
+            #     self.frame_right.stock_code = ticker_code
+            #     self.frame_right.data.stock_code = ticker_code
+            #     self.frame_right.data.load_data_csv()
+            #     # 在主线程中更新UI
+            #     self.after(0, self.frame_right.new_data)
+            #     self.after(0, self.frame_right.hide_mask)
+            # def start_loading():
+            #     threading.Thread(target=load_data, daemon=True).start()
 
-            if self.frame_right.data.stock_code != ticker_code:
-                self.frame_right.show_mask()
-                self.after(400, start_loading)
+            # if self.frame_right.data.stock_code != ticker_code:
+            #     self.frame_right.show_mask()
+            #     self.after(400, start_loading)
+            self.frame_right.new_data(ticker_code)
 
         return
 

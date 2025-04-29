@@ -1,3 +1,5 @@
+import PIL.Image
+import PIL.ImageTk
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -10,6 +12,8 @@ import matplotlib.patches as mpatches
 import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
 from data import Data
+import time
+import PIL
 
 class Figures(tk.Frame):
     def __init__(self, master, stock_code=None):
@@ -18,6 +22,11 @@ class Figures(tk.Frame):
         self.stock_code = stock_code
         self.start_index = None
         self.end_index = None
+        self.zoom_days = None
+        self.y_max = None
+        self.y_min = None
+        self.value_line = None
+        self.value_text = None
         self.data = Data()
 
         self.loading_mask = tk.Frame(self, background="gray")
@@ -26,9 +35,32 @@ class Figures(tk.Frame):
         self.loading_mask.place_forget()
         self.loading_text.place(relx=0.5, rely=0.5, anchor="center")
         
-        self.frame_Kline = FigureCanvasTkAgg(self.data.kline, master=self)
-        self.frame_Kline.get_tk_widget().place(relx=0, rely=0, relwidth=1, relheight=1, anchor="nw")
-        self.frame_Kline.draw()
+        self.frame_Kline = tk.Canvas(self, bg="white")
+        self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.9, anchor="nw")
+        self.day_line = None
+
+        self.day_info = tk.Label(self, text="", bg="white", font=("Arial", 8), justify='center')
+        self.day_info.place_forget()
+
+        self.cross_hair_button_icon = PIL.Image.open("icons/cross_hair.png")
+        self.cross_hair_button_icon = self.cross_hair_button_icon.resize((25, 25))
+        self.cross_hair_button_icon = PIL.ImageTk.PhotoImage(self.cross_hair_button_icon)
+        self.cross_hair_button = tk.Button(self, image=self.cross_hair_button_icon,
+                                           command=self.__press_cross_hair_button, fg="white",
+                                            cursor="hand2", takefocus=0, relief=tk.RAISED)
+        # self.cross_hair_button.configure(width=self.winfo_width()/20, height=self.winfo_height()/20)
+        self.cross_hair_button.place(x=0, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
+        self.cross_hair_button_flag = False
+        self.scale_status = "D"
+        self.day_button = tk.Button(self, text="D", command=lambda: self.__change_scale(s="D"),
+                                    relief=tk.SUNKEN, cursor="hand2", takefocus=0, width=3)
+        self.week_button = tk.Button(self, text="W", command=lambda: self.__change_scale(s="W"),
+                                     relief=tk.RAISED, cursor="hand2", takefocus=0, width=3)
+        self.month_button = tk.Button(self, text="M", command=lambda: self.__change_scale(s="M"),
+                                      relief=tk.RAISED, cursor="hand2", takefocus=0, width=3)
+        self.day_button.place(x=self.winfo_height()/20, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
+        self.week_button.place(x=self.winfo_height()/20*2, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
+        self.month_button.place(x=self.winfo_height()/20*3, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
 
         # self.fig = plt.Figure(figsize=(25, 28), dpi=100, facecolor="white")
         # self.fig.subplots_adjust(left=0.075, right=0.975, top=0.95, bottom=0.175, hspace=0.4, wspace=0.4)
@@ -43,8 +75,8 @@ class Figures(tk.Frame):
         # self.line = None
         # self.patches = []
 
-        # self.dragging = False
-        # self.drag_start_x = None
+        self.dragging = False
+        self.drag_start_x = None
         
         self.__bind_events()
     def show_mask(self):
@@ -54,169 +86,216 @@ class Figures(tk.Frame):
     def hide_mask(self):
         self.loading_mask.place_forget()
 
-    def new_data(self):
-        if self.stock_code is None:
-            return
-        if self.frame_Kline is not None:
-            self.frame_Kline.get_tk_widget().delete('ALL')
+    def new_data(self, stock_code):
+        self.show_mask()
+        self.stock_code = stock_code
+        self.data.stock_code = stock_code
+        self.data.load_data_csv()
         self.end_index = self.data.data['<DATE>'].max()
         self.start_index = self.end_index - pd.Timedelta(days=30)
-        
-        
-        # draw matplotlib figure in canvas
-        # self.frame_Kline = FigureCanvasTkAgg(self.data.kline, master=self)
-        # self.frame_Kline.figure = self.data.kline
-        self.frame_Kline.get_tk_widget().place(relx=0, rely=0, relwidth=1, relheight=1, anchor="nw")
+        self.zoom_days = 30
         self.__refresh_figure()
-        self.loading_mask.place_forget()
+        self.hide_mask()
 
     def __bind_events(self):
-        self.frame_Kline.get_tk_widget().bind("<MouseWheel>", self.__scroll_event)
-        # self.frame_Kline.canvas.get_tk_widget().bind("<Button-1>", self.__click_event)
-        # self.frame_Kline.canvas.get_tk_widget().bind("<B1-Motion>", self.__drag_event)
-        # self.frame_Kline.canvas.get_tk_widget().bind("<ButtonRelease-1>", self.__release_event)
-        # self.frame_Kline.canvas.get_tk_widget().bind("<Motion>", self.__motion_event)
+        self.frame_Kline.bind("<MouseWheel>", self.__scroll_event)
+        self.frame_Kline.bind("<Button-1>", self.__click_event)
+        self.frame_Kline.bind("<B1-Motion>", self.__drag_event)
+        self.frame_Kline.bind("<ButtonRelease-1>", self.__release_event)
+        self.frame_Kline.bind("<Motion>", self.__motion_event)
+        self.frame_Kline.bind("<Configure>", self.__refresh_figure)
+        self.bind("<Configure>", self.__refresh_frame)
+        # self.cross_hair_button.bind("<Button-1>", self.__press_cross_hair_button)
 
-    # def __motion_event(self, event):
-    #     if self.data is None or len(self.data) == 0:
-    #         return
+    def __change_scale(self, event=None, s='D'):
+        if self.scale_status == s:
+            return
+        if s == 'D':
+            self.day_button.config(relief=tk.SUNKEN)
+            self.week_button.config(relief=tk.RAISED)
+            self.month_button.config(relief=tk.RAISED)
+        elif s == 'W':
+            self.day_button.config(relief=tk.RAISED)
+            self.week_button.config(relief=tk.SUNKEN)
+            self.month_button.config(relief=tk.RAISED)
+        elif s == 'M':
+            self.day_button.config(relief=tk.RAISED)
+            self.week_button.config(relief=tk.RAISED)
+            self.month_button.config(relief=tk.SUNKEN)
+        self.scale_status = s
+
+    def __refresh_frame(self, event):
+        self.cross_hair_button.place(x=0, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
+        self.day_button.place(x=self.winfo_height()/20, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
+        self.week_button.place(x=self.winfo_height()/20*2, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
+        self.month_button.place(x=self.winfo_height()/20*3, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
+
+    def __press_cross_hair_button(self, event=None):
+        if self.cross_hair_button_flag:
+            # self.cross_hair_button.configure(style="Custom.TButton")
+            self.cross_hair_button.config(relief=tk.RAISED)
+            # print("cross_hair_button Custom.TButton")
+            self.cross_hair_button_flag = False
+            if self.day_line is not None:
+                self.frame_Kline.delete(self.day_line)
+                self.day_line = None
+                self.day_info.place_forget()
+            if self.value_line is not None:
+                self.frame_Kline.delete(self.value_line)
+                self.value_line = None
+            if self.value_text is not None:
+                self.frame_Kline.delete(self.value_text)
+                self.value_text = None
+        else:
+            # self.cross_hair_button.configure(style="Pressed.TButton")
+            self.cross_hair_button.config(relief=tk.SUNKEN)
+            # print("cross_hair_button Pressed.TButton")
+            self.cross_hair_button_flag = True
+
+    def __motion_event(self, event):
+        if self.data.data is None:
+            return
+        if self.day_line is not None:
+            self.frame_Kline.delete(self.day_line)
+        if self.cross_hair_button_flag:
+            # x axis
+            self.day_info.place_forget()
+            x = event.x / self.frame_Kline.winfo_width()
+            x *= self.zoom_days + 2
+            x = round(x) - 1
+            day = self.start_index + pd.Timedelta(days=x)
+            x = (x+1) / (self.zoom_days + 2) * self.frame_Kline.winfo_width()
+            self.day_line = self.frame_Kline.create_line(
+                x, 0,
+                x, self.frame_Kline.winfo_height(),
+                fill="gray", width=1.5, dash=(2, 2)
+            )
+            self.day_info.config(text=day.strftime("%Y-%m-%d"))
+            # print(self.day_info.winfo_x())
+            if x - self.day_info.winfo_width()/2 < 0:
+                self.day_info.place(x=self.day_info.winfo_width()/2, y=self.winfo_height(), anchor="s")
+            elif x+self.day_info.winfo_width()/2 > self.frame_Kline.winfo_width():
+                self.day_info.place(x=self.frame_Kline.winfo_width()-self.day_info.winfo_width()/2, y=self.winfo_height(), anchor="s")
+            else:
+                self.day_info.place(x=x, y=self.winfo_height(), anchor="s")
+            
+            # y axis
+            y = event.y
+            y_value = (self.frame_Kline.winfo_height()-y) / self.frame_Kline.winfo_height() * (self.y_max - self.y_min) + self.y_min
+            y_value = round(y_value, 2)
+            self.frame_Kline.delete(self.value_line)
+            self.frame_Kline.delete(self.value_text)
+            self.value_line = self.frame_Kline.create_line(
+                0, y,
+                self.frame_Kline.winfo_width(), y,
+                fill="gray", width=1.5, dash=(2, 2)
+            )
+            if y < self.frame_Kline.winfo_height()/2:
+                self.value_text = self.frame_Kline.create_text(
+                    5, y,
+                    text=str(y_value), fill="black", anchor="nw", font=("Arial", 8)
+                )
+            else:
+                self.value_text = self.frame_Kline.create_text(
+                    5, y,
+                    text=str(y_value), fill="black", anchor="sw", font=("Arial", 8)
+                )
         
-    #     x = (event.x - 0.075 * self.frame_Kline.winfo_width()) / (0.9 * self.frame_Kline.winfo_width())
 
-    #     x_index = int(self.end_index - x * (self.end_index - self.start_index + 1))
-    #     if x_index < 0 or x_index >= len(self.data):
-    #         return
-        
-        # print(self.data['Date'][x_index], self.data['Price'][x_index],
-        #       self.data['Open'][x_index],
-        #       self.data['High'][x_index], self.data['Low'][x_index])
-
-    # def __click_event(self, event):
-    #     self.dragging = True
-    #     self.drag_start_x = event.x
+    def __click_event(self, event):
+        if self.data.data is None:
+            return
+        self.dragging = True
+        self.drag_start_x = event.x
     
-    # def __drag_event(self, event):
-    #     if self.dragging:
-    #         dx = (event.x - self.drag_start_x) / (0.9 * self.frame_Kline.winfo_width())
-    #         move_index = dx * (self.end_index - self.start_index)
-    #         next_start_index = self.start_index + move_index
-    #         next_end_index = self.end_index + move_index
-    #         if next_start_index >= 0 and \
-    #             next_start_index < len(self.data) and \
-    #             next_end_index > 0 and \
-    #             next_end_index <= len(self.data):
-    #             self.start_index = next_start_index
-    #             self.end_index = next_end_index
-    #             self.Draw()
-    #             self.drag_start_x = event.x
-        
+    def __drag_event(self, event):
+        if self.dragging:
+            dx = (event.x - self.drag_start_x) * self.zoom_days / self.frame_Kline.winfo_width()
+            if dx < 0:
+                self.end_index = min(self.end_index - pd.Timedelta(days=dx), self.data.data['<DATE>'].max())
+                self.start_index = self.end_index - pd.Timedelta(days=self.zoom_days)
+            elif dx > 0:
+                self.start_index = max(self.start_index - pd.Timedelta(days=dx), self.data.data['<DATE>'].min())
+                self.end_index = self.start_index + pd.Timedelta(days=self.zoom_days)
+            else:
+                return
+            self.__refresh_figure()
+            self.drag_start_x = event.x
+        self.__motion_event(event)
     
-    # def __release_event(self, event):
-    #     self.dragging = False
-    #     self.drag_start_x = None
-    #     self.Draw()
+    def __release_event(self, event):
+        self.dragging = False
+        self.drag_start_x = None
 
     def __scroll_event(self, event):
-        """Scroll event to zoom in/out the figure."""
+        # """Scroll event to zoom in/out the figure."""
         if self.data.data is None:
             return
         x = event.x / self.frame_Kline.winfo_width()
-        center_day = self.start_index + pd.Timedelta(days=x * (self.end_index - self.start_index).days)
-        
-        # get real mouse position
-        # x = event.x / self.frame_Kline.winfo_width()
-        # print(x, y)
+        center_day = self.start_index + pd.Timedelta(days=x * (2 + (self.end_index - self.start_index).days))
 
         if event.delta < 0:
-            self.start_index = min(self.start_index + pd.Timedelta(days=1), self.end_index - pd.Timedelta(days=1))
-            self.end_index = max(self.start_index + pd.Timedelta(days=1), self.end_index - pd.Timedelta(days=1))
+            self.start_index = min(center_day - pd.Timedelta(days=1.1 * (center_day - self.start_index).days),
+                                   self.start_index-pd.Timedelta(days=1))
+            self.end_index = max(center_day + pd.Timedelta(days=1.1 * (self.end_index - center_day).days),
+                                   self.end_index+pd.Timedelta(days=1))
         else:
-            self.start_index = max(self.start_index - pd.Timedelta(days=1), self.data.data['<DATE>'].min())
-            self.end_index = min(self.end_index - pd.Timedelta(days=1), self.data.data['<DATE>'].max())
+            if self.zoom_days < 4:
+                return
+            self.start_index = center_day - pd.Timedelta(days=max(0.9 * (center_day - self.start_index).days, 2))
+            self.end_index = center_day + pd.Timedelta(days=max(0.9 * (self.end_index - center_day).days, 2))
+        self.start_index = max(self.start_index, self.data.data['<DATE>'].min())
+        self.end_index = min(self.end_index, self.data.data['<DATE>'].max())
+        self.zoom_days = (self.end_index - self.start_index).days
+        # if self.zoom_days < 3:
+        #     self.zoom_days = 3
+        #     self.start_index = self.end_index - pd.Timedelta(days=self.zoom_days)
         self.__refresh_figure()
+        return
 
-    def __refresh_figure(self):
-        minmax  = [self.data.data[(self.data.data['<DATE>'] >= self.start_index) & (self.data.data['<DATE>'] <= self.end_index)]['<LOW>'].min(), 
-                    self.data.data[(self.data.data['<DATE>'] >= self.start_index) & (self.data.data['<DATE>'] <= self.end_index)]['<HIGH>'].max()]
-        self.data.kline_ax.set_xlim(self.start_index-pd.Timedelta(days=1), self.end_index+pd.Timedelta(days=1))
-        self.data.kline_ax.set_ylim(minmax[0] - 0.1*(minmax[1] - minmax[0]), minmax[1] + 0.1*(minmax[1] - minmax[0]))
+    def __refresh_figure(self, event=None):
+        # print(self.winfo_width(), self.winfo_height())
+        if self.data.data is None:
+            return
+        self.frame_Kline.delete("all")
+        filtered_data = self.data.data[(self.data.data['<DATE>'] >= self.start_index.normalize()-pd.Timedelta(days=1)) & (self.data.data['<DATE>'] <= self.end_index.normalize()+pd.Timedelta(days=1))]
+        if filtered_data.empty:
+            return
         
-        self.frame_Kline.draw()
-    # def load_data_csv(self, ticker_code):
-    #     """Load data into the figure."""
-    #     """Date","Price","Open","High","Low","Vol.","Change %"""
-    #     self.data = pd.read_csv(f"datas/d_hk_txt/data/daily/hk/hkex stocks/{ticker_code}.txt")
-    #     self.start_index = 0.0
-    #     self.end_index = float(len(self.data))
+        canvas_width = self.frame_Kline.winfo_width()
+        canvas_height = self.frame_Kline.winfo_height()
 
-    # def Draw(self):
-    #     """Draw using more efficient methods."""
-    #     if self.data is None:
-    #         return
-                
-    #     self.ax.clear()
-        
-    #     # 设置基本属性
-    #     # self.ax.set_title("Stock Price")
-    #     self.ax.tick_params(axis='x', rotation=45)
-    #     self.ax.grid()
-        
-    #     # 计算数据范围
-    #     start_index = int(self.start_index)
-    #     end_index = max(start_index + 2, int(self.end_index))
-        
-    #     # 提取需要显示的数据
-    #     data_slice = self.data.iloc[start_index:end_index]
-    #     dates = pd.to_datetime(data_slice["<DATE>"])
-        
-    #     # 使用更高效的方式绘制K线图 - 批量处理而不是逐条绘制
-    #     # 准备K线数据
-    #     opens = data_slice["<OPEN>"]
-    #     closes = data_slice["<CLOSE>"]
-    #     highs = data_slice["<HIGH>"]
-    #     lows = data_slice["<LOW>"]
-        
-    #     # 计算颜色
-    #     colors = ["green" if close >= open else "red" for open, close in zip(opens, closes)]
-        
-    #     # 批量绘制线图部分
-    #     self.ax.vlines(dates, lows, highs, colors=colors, linewidth=1)
-        
-    #     # 将日期转换为matplotlib可处理的浮点数
-    #     dates_num = mdates.date2num(dates)
-        
-    #     # 计算矩形参数 - 使用数值型日期
-    #     width = 0.7  # 以天为单位的宽度
-        
-    #     green_rects = []
-    #     red_rects = []
-        
-    #     for i, (date_num, open_val, close_val, color) in enumerate(zip(dates_num, opens, closes, colors)):
-    #         # 确定矩形位置和大小
-    #         bottom = min(open_val, close_val)
-    #         height = abs(close_val - open_val)
-            
-    #         # 创建矩形
-    #         rect = mpatches.Rectangle(
-    #             (date_num - width/2, bottom), width, height
-    #         )
-            
-    #         # 根据颜色分类
-    #         if color == "green":
-    #             green_rects.append(rect)
-    #         else:
-    #             red_rects.append(rect)
-        
-    #     # 分颜色批量添加矩形
-    #     if green_rects:
-    #         self.ax.add_collection(PatchCollection(green_rects, facecolor="green", edgecolor="black", linewidth=0.5))
-    #     if red_rects:
-    #         self.ax.add_collection(PatchCollection(red_rects, facecolor="red", edgecolor="black", linewidth=0.5))
-        
-    #     # 设置坐标轴范围
-    #     if len(dates) > 0:
-    #         self.ax.set_xlim(dates.min() - pd.Timedelta(days=1), dates.max() + pd.Timedelta(days=1))
-    #     self.ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
-        
-    #     # 更新画布
-    #     self.frame_Kline.canvas.draw()
+        len_of_dates = self.zoom_days + 2
+        y_min = min(filtered_data['<LOW>']*0.99)
+        y_max = max(filtered_data['<HIGH>']*1.01)
+        self.y_min = y_min
+        self.y_max = y_max
+        # print(filtered_data['<DATE>'].min(), filtered_data['<DATE>'].max())
+        # print(self.start_index, self.end_index)
+
+        for i, data in enumerate(filtered_data.iterrows()):
+            date = data[1]['<DATE>']
+            open_price = data[1]['<OPEN>']
+            close_price = data[1]['<CLOSE>']
+            high_price = data[1]['<HIGH>']
+            low_price = data[1]['<LOW>']
+            x = ((date - self.start_index.normalize()).days+1) / len_of_dates * canvas_width
+            y_open = (open_price - y_min) / (y_max - y_min) * canvas_height
+            y_close = (close_price - y_min) / (y_max - y_min) * canvas_height
+            y_high = (high_price - y_min) / (y_max - y_min) * canvas_height
+            y_low = (low_price - y_min) / (y_max - y_min) * canvas_height
+            y_open = canvas_height - y_open
+            y_close = canvas_height - y_close
+            y_high = canvas_height - y_high
+            y_low = canvas_height - y_low
+            color = "green" if close_price >= open_price else "red"
+            # draw lines
+            self.frame_Kline.create_line(
+                x, y_high, x, y_low, fill=color, width=1.5
+            )
+            # draw rectangles
+            width = 0.7 * canvas_width / len_of_dates
+            self.frame_Kline.create_rectangle(
+                x - width / 2, y_open, x + width / 2, y_close,
+                fill=color, outline=color
+            )
