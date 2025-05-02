@@ -41,13 +41,16 @@ class Figures(tk.Frame):
 
         self.day_info = tk.Label(self, text="", bg="white", font=("Arial", 8), justify='center')
         self.day_info.place_forget()
-
-        self.cross_hair_button_icon = PIL.Image.open("icons/cross_hair.png")
-        self.cross_hair_button_icon = self.cross_hair_button_icon.resize((25, 25))
-        self.cross_hair_button_icon = PIL.ImageTk.PhotoImage(self.cross_hair_button_icon)
-        self.cross_hair_button = tk.Button(self, image=self.cross_hair_button_icon,
-                                           command=self.__press_cross_hair_button, fg="white",
-                                            cursor="hand2", takefocus=0, relief=tk.RAISED)
+        try:
+            self.cross_hair_button_icon = PIL.Image.open("icons/cross_hair.png")
+            self.cross_hair_button_icon = self.cross_hair_button_icon.resize((25, 25))
+            self.cross_hair_button_icon = PIL.ImageTk.PhotoImage(self.cross_hair_button_icon)
+            self.cross_hair_button = tk.Button(self, image=self.cross_hair_button_icon,
+                                            command=self.__press_cross_hair_button, fg="white",
+                                                cursor="hand2", takefocus=0, relief=tk.RAISED)
+        except:
+            self.cross_hair_button = tk.Button(self, text='+', command=self.__press_cross_hair_button,
+                                               fg="black", cursor="hand2", takefocus=0, relief=tk.RAISED)
         # self.cross_hair_button.configure(width=self.winfo_width()/20, height=self.winfo_height()/20)
         self.cross_hair_button.place(x=0, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
         self.cross_hair_button_flag = False
@@ -87,7 +90,7 @@ class Figures(tk.Frame):
         self.loading_mask.place_forget()
 
     def new_data(self, stock_code):
-        self.show_mask()
+        self.after(0, self.show_mask())
         self.stock_code = stock_code
         self.data.stock_code = stock_code
         self.data.load_data_csv()
@@ -95,7 +98,7 @@ class Figures(tk.Frame):
         self.start_index = self.end_index - pd.Timedelta(days=30)
         self.zoom_days = 30
         self.__refresh_figure()
-        self.hide_mask()
+        self.after(0, self.hide_mask())
 
     def __bind_events(self):
         self.frame_Kline.bind("<MouseWheel>", self.__scroll_event)
@@ -258,44 +261,126 @@ class Figures(tk.Frame):
         if self.data.data is None:
             return
         self.frame_Kline.delete("all")
-        filtered_data = self.data.data[(self.data.data['<DATE>'] >= self.start_index.normalize()-pd.Timedelta(days=1)) & (self.data.data['<DATE>'] <= self.end_index.normalize()+pd.Timedelta(days=1))]
-        if filtered_data.empty:
-            return
-        
-        canvas_width = self.frame_Kline.winfo_width()
-        canvas_height = self.frame_Kline.winfo_height()
+        match(self.scale_status):
+            case "D":
+                filtered_data = self.data.data[(self.data.data['<DATE>'] >= self.start_index.normalize()-pd.Timedelta(days=1)) & (self.data.data['<DATE>'] <= self.end_index.normalize()+pd.Timedelta(days=1))]
+                if filtered_data.empty:
+                    return
+                
+                canvas_width = self.frame_Kline.winfo_width()
+                canvas_height = self.frame_Kline.winfo_height()
 
-        len_of_dates = self.zoom_days + 2
-        y_min = min(filtered_data['<LOW>']*0.99)
-        y_max = max(filtered_data['<HIGH>']*1.01)
-        self.y_min = y_min
-        self.y_max = y_max
-        # print(filtered_data['<DATE>'].min(), filtered_data['<DATE>'].max())
-        # print(self.start_index, self.end_index)
+                len_of_dates = self.zoom_days + 2
+                y_min = min(filtered_data['<LOW>']*0.99)
+                y_max = max(filtered_data['<HIGH>']*1.01)
+                self.y_min = y_min
+                self.y_max = y_max
+                # print(filtered_data['<DATE>'].min(), filtered_data['<DATE>'].max())
+                # print(self.start_index, self.end_index)
 
-        for i, data in enumerate(filtered_data.iterrows()):
-            date = data[1]['<DATE>']
-            open_price = data[1]['<OPEN>']
-            close_price = data[1]['<CLOSE>']
-            high_price = data[1]['<HIGH>']
-            low_price = data[1]['<LOW>']
-            x = ((date - self.start_index.normalize()).days+1) / len_of_dates * canvas_width
-            y_open = (open_price - y_min) / (y_max - y_min) * canvas_height
-            y_close = (close_price - y_min) / (y_max - y_min) * canvas_height
-            y_high = (high_price - y_min) / (y_max - y_min) * canvas_height
-            y_low = (low_price - y_min) / (y_max - y_min) * canvas_height
-            y_open = canvas_height - y_open
-            y_close = canvas_height - y_close
-            y_high = canvas_height - y_high
-            y_low = canvas_height - y_low
-            color = "green" if close_price >= open_price else "red"
-            # draw lines
-            self.frame_Kline.create_line(
-                x, y_high, x, y_low, fill=color, width=1.5
-            )
-            # draw rectangles
-            width = 0.7 * canvas_width / len_of_dates
-            self.frame_Kline.create_rectangle(
-                x - width / 2, y_open, x + width / 2, y_close,
-                fill=color, outline=color
-            )
+                for i, data in enumerate(filtered_data.iterrows()):
+                    date = data[1]['<DATE>']
+                    open_price = data[1]['<OPEN>']
+                    close_price = data[1]['<CLOSE>']
+                    high_price = data[1]['<HIGH>']
+                    low_price = data[1]['<LOW>']
+                    x = ((date - self.start_index.normalize()).days+1) / len_of_dates * canvas_width
+                    y_open = (open_price - y_min) / (y_max - y_min) * canvas_height
+                    y_close = (close_price - y_min) / (y_max - y_min) * canvas_height
+                    y_high = (high_price - y_min) / (y_max - y_min) * canvas_height
+                    y_low = (low_price - y_min) / (y_max - y_min) * canvas_height
+                    y_open = canvas_height - y_open
+                    y_close = canvas_height - y_close
+                    y_high = canvas_height - y_high
+                    y_low = canvas_height - y_low
+                    color = "green" if close_price >= open_price else "red"
+                    # draw lines
+                    self.frame_Kline.create_line(
+                        x, y_high, x, y_low, fill=color, width=1.5
+                    )
+                    # draw rectangles
+                    width = 0.7 * canvas_width / len_of_dates
+                    self.frame_Kline.create_rectangle(
+                        x - width / 2, y_open, x + width / 2, y_close,
+                        fill=color, outline=color
+                    )
+            case "W":
+                filtered_data = self.data.data[(self.data.data['<DATE>'] >= self.start_index) & (self.data.data['<DATE>'] <= self.end_index)]
+                if filtered_data.empty:
+                    return
+                
+                canvas_width = self.frame_Kline.winfo_width()
+                canvas_height = self.frame_Kline.winfo_height()
+
+                len_of_dates = len(filtered_data['<DATE>'].unique())
+                y_min = min(filtered_data['<LOW>']*0.99)
+                y_max = max(filtered_data['<HIGH>']*1.01)
+                self.y_min = y_min
+                self.y_max = y_max
+
+                for i, data in enumerate(filtered_data.iterrows()):
+                    date = data[1]['<DATE>']
+                    open_price = data[1]['<OPEN>']
+                    close_price = data[1]['<CLOSE>']
+                    high_price = data[1]['<HIGH>']
+                    low_price = data[1]['<LOW>']
+                    x = ((date - self.start_index).days+1) / len_of_dates * canvas_width
+                    y_open = (open_price - y_min) / (y_max - y_min) * canvas_height
+                    y_close = (close_price - y_min) / (y_max - y_min) * canvas_height
+                    y_high = (high_price - y_min) / (y_max - y_min) * canvas_height
+                    y_low = (low_price - y_min) / (y_max - y_min) * canvas_height
+                    y_open = canvas_height - y_open
+                    y_close = canvas_height - y_close
+                    y_high = canvas_height - y_high
+                    y_low = canvas_height - y_low
+                    color = "green" if close_price >= open_price else "red"
+                    # draw lines
+                    self.frame_Kline.create_line(
+                        x, y_high, x, y_low, fill=color, width=1.5
+                    )
+                    # draw rectangles
+                    width = 0.7 * canvas_width / len_of_dates
+                    self.frame_Kline.create_rectangle(
+                        x - width / 2, y_open, x + width / 2, y_close,
+                        fill=color, outline=color
+                    )
+            case "M":
+                filtered_data = self.data.data[(self.data.data['<DATE>'] >= self.start_index) & (self.data.data['<DATE>'] <= self.end_index)]
+                if filtered_data.empty:
+                    return
+                
+                canvas_width = self.frame_Kline.winfo_width()
+                canvas_height = self.frame_Kline.winfo_height()
+
+                len_of_dates = len(filtered_data['<DATE>'].unique())
+                y_min = min(filtered_data['<LOW>']*0.99)
+                y_max = max(filtered_data['<HIGH>']*1.01)
+                self.y_min = y_min
+                self.y_max = y_max
+
+                for i, data in enumerate(filtered_data.iterrows()):
+                    date = data[1]['<DATE>']
+                    open_price = data[1]['<OPEN>']
+                    close_price = data[1]['<CLOSE>']
+                    high_price = data[1]['<HIGH>']
+                    low_price = data[1]['<LOW>']
+                    x = ((date - self.start_index).days+1) / len_of_dates * canvas_width
+                    y_open = (open_price - y_min) / (y_max - y_min) * canvas_height
+                    y_close = (close_price - y_min) / (y_max - y_min) * canvas_height
+                    y_high = (high_price - y_min) / (y_max - y_min) * canvas_height
+                    y_low = (low_price - y_min) / (y_max - y_min) * canvas_height
+                    y_open = canvas_height - y_open
+                    y_close = canvas_height - y_close
+                    y_high = canvas_height - y_high
+                    y_low = canvas_height - y_low
+                    color = "green" if close_price >= open_price else "red"
+                    # draw lines
+                    self.frame_Kline.create_line(
+                        x, y_high, x, y_low, fill=color, width=1.5
+                    )
+                    # draw rectangles
+                    width = 0.7 * canvas_width / len_of_dates
+                    self.frame_Kline.create_rectangle(
+                        x - width / 2, y_open, x + width / 2, y_close,
+                        fill=color, outline=color
+                    )
