@@ -35,12 +35,6 @@ class Figures(tk.Frame):
         # self.loading_mask.lift()
         self.loading_mask.place_forget()
         self.loading_text.place(relx=0.5, rely=0.5, anchor="center")
-        
-        self.frame_Kline = tk.Canvas(self, bg="white")
-        self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
-        self.day_line = None
-        self.moving_average_info = None
-        self.day_info = None
 
         self.frame_macd = tk.Canvas(self, bg="white")
         # self.frame_macd.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
@@ -51,7 +45,12 @@ class Figures(tk.Frame):
         self.frame_kdj = tk.Canvas(self, bg="white")
         # self.frame_kdj.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
         self.frame_kdj.place_forget()
-
+        
+        self.frame_Kline = tk.Canvas(self, bg="white")
+        self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
+        self.day_line = {'frame_kline': None, 'frame_macd': None, 'frame_volume': None, 'frame_kdj': None}
+        self.moving_average_info = None
+        self.day_info = None
 
         try:
             self.cross_hair_button_icon = PIL.Image.open("icons/cross_hair.png")
@@ -139,13 +138,22 @@ class Figures(tk.Frame):
             self.cross_hair_button.config(relief=tk.RAISED)
             # print("cross_hair_button Custom.TButton")
             self.cross_hair_button_flag = False
-            if self.day_line is not None:
-                self.frame_Kline.delete(self.day_line)
-                self.day_line = None
+            if self.day_line['frame_kline'] is not None:
+                self.frame_Kline.delete(self.day_line['frame_kline'])
+                self.day_line['frame_kline'] = None
                 # self.day_info.place_forget()
                 if self.day_info is not None:
                     self.frame_Kline.delete(self.day_info)
                     self.day_info = None
+            if self.day_line['frame_macd'] is not None:
+                self.frame_macd.delete(self.day_line['frame_macd'])
+                self.day_line['frame_macd'] = None
+            if self.day_line['frame_volume'] is not None:
+                self.frame_volume.delete(self.day_line['frame_volume'])
+                self.day_line['frame_volume'] = None
+            if self.day_line['frame_kdj'] is not None:
+                self.frame_kdj.delete(self.day_line['frame_kdj'])
+                self.day_line['frame_kdj'] = None
             if self.value_line is not None:
                 self.frame_Kline.delete(self.value_line)
                 self.value_line = None
@@ -161,8 +169,14 @@ class Figures(tk.Frame):
     def __motion_event(self, event):
         if self.data.data_daily.data is None:
             return
-        if self.day_line is not None:
-            self.frame_Kline.delete(self.day_line)
+        if self.day_line['frame_kline'] is not None:
+            self.frame_Kline.delete(self.day_line['frame_kline'])
+        if self.day_line['frame_macd'] is not None:
+            self.frame_macd.delete(self.day_line['frame_macd'])
+        if self.day_line['frame_volume'] is not None:
+            self.frame_volume.delete(self.day_line['frame_volume'])
+        if self.day_line['frame_kdj'] is not None:
+            self.frame_kdj.delete(self.day_line['frame_kdj'])
         if self.cross_hair_button_flag:
             # x axis
             start_date = self.data.data_daily.data['<DATE>'].iloc[round(self.start_index)]
@@ -177,60 +191,84 @@ class Figures(tk.Frame):
                 filtered_data = self.data.data_monthly.data[(self.data.data_monthly.data['<DATE>'] >= start_date-pd.Timedelta(days=30)) & 
                                                           (self.data.data_monthly.data['<DATE>'] <= end_date+pd.Timedelta(days=30))]
             x = event.x / self.frame_Kline.winfo_width()
-            x *= filtered_data.shape[0] - 1
+            if round(self.end_index) == filtered_data.index[-1]:
+                x = x * filtered_data.shape[0]
+            else:
+                x *= filtered_data.shape[0] - 1
             x = round(x)
-            day = filtered_data.iloc[x]['<DATE>']
-            # show moving average
-            if self.moving_average_info is not None:
-                self.frame_Kline.delete(self.moving_average_info)
-            if self.scale_status == "D":
-                self.moving_average_info = self.frame_Kline.create_text(
-                    1, 0,
-                    text=f"MA5: {self.data.data_daily.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_daily.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_daily.ma20[filtered_data.index[x]]:.2f}",
-                    fill="black", anchor="nw", font=("Arial", 8)
-                )
-            elif self.scale_status == "W":
-                self.moving_average_info = self.frame_Kline.create_text(
-                    1, 0,
-                    text=f"MA5: {self.data.data_weekly.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_weekly.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_weekly.ma20[filtered_data.index[x]]:.2f}",
-                    fill="black", anchor="nw", font=("Arial", 8)
-                )
-            elif self.scale_status == "M":
-                self.moving_average_info = self.frame_Kline.create_text(
-                    1, 0,
-                    text=f"MA5: {self.data.data_monthly.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_monthly.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_monthly.ma20[filtered_data.index[x]]:.2f}",
-                    fill="black", anchor="nw", font=("Arial", 8)
-                )
-            x = x / (filtered_data.shape[0] - 1) * self.frame_Kline.winfo_width()
-            self.day_line = self.frame_Kline.create_line(
-                x, 0,
-                x, self.frame_Kline.winfo_height(),
-                fill="gray", width=1.5, dash=(2, 2)
-            )
-            if self.day_info is not None:
-                self.frame_Kline.delete(self.day_info)
-            if self.scale_status == "D" or self.scale_status == "W":
-                if x > self.frame_Kline.winfo_width()/2:
-                    self.day_info = self.frame_Kline.create_text(
-                        x-5, self.frame_Kline.winfo_height(),
-                        text=day.strftime("%Y-%m-%d"), fill="black", anchor="se", font=("Arial", 8)
+            try:
+                day = filtered_data.iloc[x]['<DATE>']
+                # show moving average
+                if self.moving_average_info is not None:
+                    self.frame_Kline.delete(self.moving_average_info)
+                if self.scale_status == "D":
+                    self.moving_average_info = self.frame_Kline.create_text(
+                        1, 0,
+                        text=f"MA5: {self.data.data_daily.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_daily.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_daily.ma20[filtered_data.index[x]]:.2f}",
+                        fill="black", anchor="nw", font=("Arial", 8)
                     )
+                elif self.scale_status == "W":
+                    self.moving_average_info = self.frame_Kline.create_text(
+                        1, 0,
+                        text=f"MA5: {self.data.data_weekly.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_weekly.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_weekly.ma20[filtered_data.index[x]]:.2f}",
+                        fill="black", anchor="nw", font=("Arial", 8)
+                    )
+                elif self.scale_status == "M":
+                    self.moving_average_info = self.frame_Kline.create_text(
+                        1, 0,
+                        text=f"MA5: {self.data.data_monthly.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_monthly.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_monthly.ma20[filtered_data.index[x]]:.2f}",
+                        fill="black", anchor="nw", font=("Arial", 8)
+                    )
+                if round(self.end_index) == filtered_data.index[-1]:
+                    x = x / filtered_data.shape[0] * self.frame_Kline.winfo_width()
                 else:
-                    self.day_info = self.frame_Kline.create_text(
-                        x+5, self.frame_Kline.winfo_height(),
-                        text=day.strftime("%Y-%m-%d"), fill="black", anchor="sw", font=("Arial", 8)
-                    )
-            elif self.scale_status == "M":
-                if x > self.frame_Kline.winfo_width()/2:
-                    self.day_info = self.frame_Kline.create_text(
-                        x-5, self.frame_Kline.winfo_height(),
-                        text=day.strftime("%Y-%m"), fill="black", anchor="se", font=("Arial", 8)
-                    )
-                else:
-                    self.day_info = self.frame_Kline.create_text(
-                        x+5, self.frame_Kline.winfo_height(),
-                        text=day.strftime("%Y-%m"), fill="black", anchor="sw", font=("Arial", 8)
-                    )
+                    x = x / (filtered_data.shape[0] - 1) * self.frame_Kline.winfo_width()
+                self.day_line['frame_kline'] = self.frame_Kline.create_line(
+                    x, 0,
+                    x, self.frame_Kline.winfo_height(),
+                    fill="gray", width=1.5, dash=(2, 2)
+                )
+                self.day_line['frame_macd'] = self.frame_macd.create_line(
+                    x, 0,
+                    x, self.frame_macd.winfo_height(),
+                    fill="gray", width=1.5, dash=(2, 2)
+                )
+                self.day_line['frame_volume'] = self.frame_volume.create_line(
+                    x, 0,
+                    x, self.frame_volume.winfo_height(),
+                    fill="gray", width=1.5, dash=(2, 2)
+                )
+                self.day_line['frame_kdj'] = self.frame_kdj.create_line(
+                    x, 0,
+                    x, self.frame_kdj.winfo_height(),
+                    fill="gray", width=1.5, dash=(2, 2)
+                )
+                if self.day_info is not None:
+                    self.frame_Kline.delete(self.day_info)
+                if self.scale_status == "D" or self.scale_status == "W":
+                    if x > self.frame_Kline.winfo_width()/2:
+                        self.day_info = self.frame_Kline.create_text(
+                            x-5, self.frame_Kline.winfo_height(),
+                            text=day.strftime("%Y-%m-%d"), fill="black", anchor="se", font=("Arial", 8)
+                        )
+                    else:
+                        self.day_info = self.frame_Kline.create_text(
+                            x+5, self.frame_Kline.winfo_height(),
+                            text=day.strftime("%Y-%m-%d"), fill="black", anchor="sw", font=("Arial", 8)
+                        )
+                elif self.scale_status == "M":
+                    if x > self.frame_Kline.winfo_width()/2:
+                        self.day_info = self.frame_Kline.create_text(
+                            x-5, self.frame_Kline.winfo_height(),
+                            text=day.strftime("%Y-%m"), fill="black", anchor="se", font=("Arial", 8)
+                        )
+                    else:
+                        self.day_info = self.frame_Kline.create_text(
+                            x+5, self.frame_Kline.winfo_height(),
+                            text=day.strftime("%Y-%m"), fill="black", anchor="sw", font=("Arial", 8)
+                        )
+            except:
+                pass
             # y axis
             y = event.y
             y_value = (self.frame_Kline.winfo_height()-y) / self.frame_Kline.winfo_height() * (self.y_max - self.y_min) + self.y_min
