@@ -14,6 +14,8 @@ class indicators():
         self.ma20 = None
         self.bollinger_bands = {"upper": None, "lower": None}
         self.macd = {'dif': None, 'dem': None, 'osc': None}
+        self.rsi = {'6': None, '14': None}
+        self.kdj = {'k': None, 'd': None, 'j': None}
 
 class Data():
     def __init__(self, stock_code=None):
@@ -29,16 +31,70 @@ class Data():
             self.data_daily.data.sort_values(by=["<DATE>"], ascending=True, inplace=True)
             # print(self.data.head())
             self.__get_weekly_monthly_data()
-            self.__get_moving_average('daily')
-            self.__get_bollinger_bands('daily')
-            self.__get_macd('daily')
-            self.__get_moving_average('weekly')
-            self.__get_bollinger_bands('weekly')
-            self.__get_macd('weekly')
-            self.__get_moving_average('monthly')
-            self.__get_bollinger_bands('monthly')
-            self.__get_macd('monthly')
-    
+
+            self.__get_indicators(type='daily')
+            self.__get_indicators(type='weekly')
+            self.__get_indicators(type='monthly')
+
+    def __get_indicators(self, type='daily'):
+        self.__get_moving_average(type)
+        self.__get_bollinger_bands(type)
+        self.__get_macd(type)
+        self.__get_rsi(type)
+        self.__get_kdj(type)
+
+    def __get_kdj(self, type='daily'):
+        if type == 'daily':
+            if self.data_daily.data is None:
+                return
+            low_min = self.data_daily.data['<LOW>'].rolling(window=9, closed='right').min()
+            high_max = self.data_daily.data['<HIGH>'].rolling(window=9, closed='right').max()
+            rsv = (self.data_daily.data['<CLOSE>'] - low_min) / (high_max - low_min) * 100
+            self.data_daily.kdj['k'] = rsv.ewm(com=2).mean()
+            self.data_daily.kdj['d'] = self.data_daily.kdj['k'].ewm(com=2).mean()
+            self.data_daily.kdj['j'] = 3 * self.data_daily.kdj['k'] - 2 * self.data_daily.kdj['d']
+        elif type == 'weekly':
+            if self.data_weekly.data is None:
+                return
+            low_min = self.data_weekly.data['<LOW>'].rolling(window=9, closed='right').min()
+            high_max = self.data_weekly.data['<HIGH>'].rolling(window=9, closed='right').max()
+            rsv = (self.data_weekly.data['<CLOSE>'] - low_min) / (high_max - low_min) * 100
+            self.data_weekly.kdj['k'] = rsv.ewm(com=2).mean()
+            self.data_weekly.kdj['d'] = self.data_weekly.kdj['k'].ewm(com=2).mean()
+            self.data_weekly.kdj['j'] = 3 * self.data_weekly.kdj['k'] - 2 * self.data_weekly.kdj['d']
+        elif type == 'monthly':
+            if self.data_monthly.data is None:
+                return
+            low_min = self.data_monthly.data['<LOW>'].rolling(window=9, closed='right').min()
+            high_max = self.data_monthly.data['<HIGH>'].rolling(window=9, closed='right').max()
+            rsv = (self.data_monthly.data['<CLOSE>'] - low_min) / (high_max - low_min) * 100
+            self.data_monthly.kdj['k'] = rsv.ewm(com=2).mean()
+            self.data_monthly.kdj['d'] = self.data_monthly.kdj['k'].ewm(com=2).mean()
+            self.data_monthly.kdj['j'] = 3 * self.data_monthly.kdj['k'] - 2 * self.data_monthly.kdj['d']
+
+    def __get_rsi(self, type='daily'):
+        def calculate_rsi(data, period):
+            delta = data['<CLOSE>'].diff()
+            gain = delta.where(delta > 0, 0).rolling(window=period, closed='right').mean()
+            loss = -delta.where(delta < 0, 0).rolling(window=period, closed='right').mean()
+            rs = gain / loss
+            return 100 - (100 / (1 + rs))
+        if type == 'daily':
+            if self.data_daily.data is None:
+                return
+            self.data_daily.rsi['6'] = calculate_rsi(self.data_daily.data, 6)
+            self.data_daily.rsi['14'] = calculate_rsi(self.data_daily.data, 14)
+        elif type == 'weekly':
+            if self.data_weekly.data is None:
+                return
+            self.data_weekly.rsi['6'] = calculate_rsi(self.data_weekly.data, 6)
+            self.data_weekly.rsi['14'] = calculate_rsi(self.data_weekly.data, 14)
+        elif type == 'monthly':
+            if self.data_monthly.data is None:
+                return
+            self.data_monthly.rsi['6'] = calculate_rsi(self.data_monthly.data, 6)
+            self.data_monthly.rsi['14'] = calculate_rsi(self.data_monthly.data, 14)
+
     def __get_macd(self, type='daily'):
         if type == 'daily':
             if self.data_daily.data is None:

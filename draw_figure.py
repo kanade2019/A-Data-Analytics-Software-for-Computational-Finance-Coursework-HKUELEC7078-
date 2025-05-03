@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk
+from tkinter import font as tkFont
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.collections import PatchCollection
@@ -42,7 +43,16 @@ class Figures(tk.Frame):
         self.day_info = None
 
         self.frame_macd = tk.Canvas(self, bg="white")
-        self.frame_macd.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+        # self.frame_macd.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+        self.frame_macd.place_forget()
+        self.frame_volume = tk.Canvas(self, bg="white")
+        self.frame_volume.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+        # self.frame_volume.place_forget()
+        self.frame_kdj = tk.Canvas(self, bg="white")
+        # self.frame_kdj.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+        self.frame_kdj.place_forget()
+
+
         try:
             self.cross_hair_button_icon = PIL.Image.open("icons/cross_hair.png")
             self.cross_hair_button_icon = self.cross_hair_button_icon.resize((25, 25))
@@ -66,19 +76,6 @@ class Figures(tk.Frame):
         self.day_button.place(x=self.winfo_height()/20, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
         self.week_button.place(x=self.winfo_height()/20*2, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
         self.month_button.place(x=self.winfo_height()/20*3, y=0, width=self.winfo_height()/20, height=self.winfo_height()/20, anchor="nw")
-
-        # self.fig = plt.Figure(figsize=(25, 28), dpi=100, facecolor="white")
-        # self.fig.subplots_adjust(left=0.075, right=0.975, top=0.95, bottom=0.175, hspace=0.4, wspace=0.4)
-        # self.frame_Kline.canvas = FigureCanvasTkAgg(self.fig, master=self.frame_Kline)
-        # self.frame_Kline.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        # self.ax = self.fig.add_subplot(111)
-        # self.ax.set_title("Stock Price")
-        # self.ax.tick_params(axis='x', rotation=45)
-        # self.ax.grid()
-
-        # # 存储用于重绘的对象
-        # self.line = None
-        # self.patches = []
 
         self.dragging = False
         self.drag_start_x = None
@@ -289,76 +286,119 @@ class Figures(tk.Frame):
         if self.data.data_daily.data is None:
             return
         x = event.x / self.frame_Kline.winfo_width()
-        center_index = (self.end_index + self.start_index) / 2
+        center_index = self.start_index * (1-x) + self.end_index * (x)
         if event.delta < 0:
-            self.start_index = min((center_index - 1.1 * (center_index - self.start_index)),
-                                  self.start_index - 1)
-            self.end_index = max((center_index + 1.1 * (self.end_index - center_index)),
-                                self.end_index + 1)
+            if self.scale_status == "D":
+                self.zoom_days = max(self.zoom_days * 1.1, self.zoom_days + 1)
+            elif self.scale_status == "W":
+                self.zoom_days = max(self.zoom_days * 1.1, self.zoom_days + 5)
+            elif self.scale_status == "M":
+                self.zoom_days = max(self.zoom_days * 1.1, self.zoom_days + 30)
         else:
-            if self.zoom_days < 4:
-                return
-            self.start_index = center_index + max(0.9 * (self.start_index - center_index), 2)
-            self.end_index = center_index - min(0.9 * (self.end_index - center_index), 2)
-        self.start_index = max(self.start_index, 0)
-        self.end_index = min(self.end_index, len(self.data.data_daily.data) - 1)
-        self.zoom_days = (self.end_index - self.start_index)
+            if self.scale_status == "D":
+                self.zoom_days = max(min(self.zoom_days * 0.9, self.zoom_days-1), 4)
+            elif self.scale_status == "W":
+                self.zoom_days = max(min(self.zoom_days * 0.9, self.zoom_days-5), 20)
+            elif self.scale_status == "M":
+                self.zoom_days = max(min(self.zoom_days * 0.9, self.zoom_days-30), 120)
+        self.end_index = min(center_index + self.zoom_days * (1-x), len(self.data.data_daily.data) - 1)
+        self.start_index = max(self.end_index - self.zoom_days, 0)
+        self.zoom_days = self.end_index - self.start_index
         self.__refresh_figure()
         return
 
     def __refresh_figure(self, event=None):
-        # k line
         if self.data.data_daily.data is None:
             return
+
+        # clear canvas
         self.frame_Kline.delete("all")
         self.frame_macd.delete("all")
-        self.frame_macd.create_line(
-            0, self.frame_macd.winfo_height()/2, self.frame_macd.winfo_width(), self.frame_macd.winfo_height()/2,
-            fill="gray", width=1.5, dash=(2, 2)
-        )
+        self.frame_volume.delete("all")
+        self.frame_kdj.delete("all")
+
         start_date = self.data.data_daily.data['<DATE>'].iloc[round(self.start_index)]
         end_date = self.data.data_daily.data['<DATE>'].iloc[round(self.end_index)]
+
         match(self.scale_status):
             case "D":
-                filtered_data = self.data.data_daily.data[(self.data.data_daily.data['<DATE>'] >= start_date -pd.Timedelta(days=1)) & 
-                                                          (self.data.data_daily.data['<DATE>'] <= end_date+pd.Timedelta(days=1))]
+                filtered_data = self.data.data_daily.data[(self.data.data_daily.data['<DATE>'] >= start_date -pd.Timedelta(days=1)) & (self.data.data_daily.data['<DATE>'] <= end_date+pd.Timedelta(days=1))]
                 bollinger_bands = self.data.data_daily.bollinger_bands
                 ma5 = self.data.data_daily.ma5
                 ma10 = self.data.data_daily.ma10
                 ma20 = self.data.data_daily.ma20
                 macd = self.data.data_daily.macd
+                kdj = self.data.data_daily.kdj
 
             case "W":
-                filtered_data = self.data.data_weekly.data[(self.data.data_weekly.data['<DATE>'] >= self.start_index.normalize()-pd.Timedelta(days=7)) &
-                                                          (self.data.data_weekly.data['<DATE>'] <= self.end_index.normalize()+pd.Timedelta(days=7))]
+                filtered_data = self.data.data_weekly.data[(self.data.data_weekly.data['<DATE>'] >= start_date - pd.Timedelta(days=7)) & (self.data.data_weekly.data['<DATE>'] <= end_date + pd.Timedelta(days=7))]
                 bollinger_bands = self.data.data_weekly.bollinger_bands
                 ma5 = self.data.data_weekly.ma5
                 ma10 = self.data.data_weekly.ma10
                 ma20 = self.data.data_weekly.ma20
                 macd = self.data.data_weekly.macd
+                kdj = self.data.data_weekly.kdj
+
             case "M":
-                filtered_data = self.data.data_monthly.data[(self.data.data_monthly.data['<DATE>'] >= self.start_index.normalize()-pd.Timedelta(days=30)) &
-                                                          (self.data.data_monthly.data['<DATE>'] <= self.end_index.normalize()+pd.Timedelta(days=30))]
+                filtered_data = self.data.data_monthly.data[(self.data.data_monthly.data['<DATE>'] >= start_date - pd.Timedelta(days=30)) & (self.data.data_monthly.data['<DATE>'] <= end_date + pd.Timedelta(days=30))]
                 bollinger_bands = self.data.data_monthly.bollinger_bands
                 ma5 = self.data.data_monthly.ma5
                 ma10 = self.data.data_monthly.ma10
                 ma20 = self.data.data_monthly.ma20
                 macd = self.data.data_monthly.macd
+                kdj = self.data.data_monthly.kdj
+
         if filtered_data.empty:
             return
         
+        # initialize canvas
         canvas_width = self.frame_Kline.winfo_width()
         canvas_height = self.frame_Kline.winfo_height()
 
         length = filtered_data.shape[0] - 1
+        index_min = filtered_data.index[0]
+        index_max = filtered_data.index[-1]
+        if index_max == round(self.end_index):
+            length += 1
         width = 0.7 * canvas_width / length
         y_min = min(filtered_data['<LOW>']*0.99)
         y_max = max(filtered_data['<HIGH>']*1.01)
         self.y_min = y_min
         self.y_max = y_max
-        osc_max = max(abs(macd['osc'][round(self.start_index):round(self.end_index)])) * 1.1
+        osc_max = max(abs(macd['osc'][index_min: index_max+1])) * 1.1
+        dif_dem_max = max(max(macd['dif'][index_min: index_max+1]), max(macd['dem'][index_min: index_max+1]))
+        dif_dem_min = min(min(macd['dif'][index_min: index_max+1]), min(macd['dem'][index_min: index_max+1]))
+        dif_dem_max = dif_dem_max + (dif_dem_max - dif_dem_min) * 0.1
+        dif_dem_min = dif_dem_min - (dif_dem_max - dif_dem_min) * 0.1
+        vol_max = max(filtered_data['<VOL>']) * 1.1
+        kdj_max = max(max(kdj['k'][index_min: index_max+1]), max(kdj['d'][index_min: index_max+1]), max(kdj['j'][index_min: index_max+1]))
+        kdj_min = min(min(kdj['k'][index_min: index_max+1]), min(kdj['d'][index_min: index_max+1]), min(kdj['j'][index_min: index_max+1]))
+        kdj_max = kdj_max + (kdj_max - kdj_min) * 0.1
+        kdj_min = kdj_min - (kdj_max - kdj_min) * 0.1
+        
+        self.frame_macd.create_line(
+            0, self.frame_macd.winfo_height()/2, self.frame_macd.winfo_width(), self.frame_macd.winfo_height()/2,
+            fill="gray", width=1.5, dash=(2, 2)
+        )
+        self.frame_volume.create_line(
+            0, self.frame_volume.winfo_height()/3, self.frame_volume.winfo_width(), self.frame_volume.winfo_height()/3,
+            fill="gray", width=1.5, dash=(2, 2)
+        )
+        self.frame_volume.create_text(
+            5, self.frame_volume.winfo_height()/3,
+            text=f"{round(vol_max*0.667/1000000, 2)}M", fill="gray", anchor="nw", font=tkFont.Font(family="Arial", size=8, weight="bold")
+        )
+        self.frame_volume.create_line(
+            0, self.frame_volume.winfo_height()/3*2, self.frame_volume.winfo_width(), self.frame_volume.winfo_height()/3*2,
+            fill="gray", width=1.5, dash=(2, 2)
+        )
+        self.frame_volume.create_text(
+            5, self.frame_volume.winfo_height()/3*2,
+            text=f"{round(vol_max*0.333/1000000, 2)}M", fill="gray", anchor="nw", font=tkFont.Font(family="Arial", size=8, weight="bold")
+        )
 
         for i, data in enumerate(filtered_data.iterrows()):
+            # draw kline data
             date = data[1]['<DATE>']
             open_price = data[1]['<OPEN>']
             close_price = data[1]['<CLOSE>']
@@ -418,4 +458,50 @@ class Figures(tk.Frame):
                     self.frame_macd.create_rectangle(
                         x - width / 2, self.frame_macd.winfo_height()/2, x + width / 2, self.frame_macd.winfo_height()/2 - ocs / osc_max * self.frame_macd.winfo_height()/2,
                         fill='green', outline='green'
+                    )
+                dif = macd['dif'][data[0]]
+                dem = macd['dem'][data[0]]
+                if dif is not None and macd['dif'][data[0]-1] is not None:
+                    self.frame_macd.create_line(
+                        x, (1 - (dif - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
+                        (i-1) / length * canvas_width, (1 - (macd['dif'][data[0]-1] - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
+                        fill='blue', width=1
+                    )
+                if dem is not None and macd['dem'][data[0]-1] is not None:
+                    self.frame_macd.create_line(
+                        x, (1 - (dem - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
+                        (i-1) / length * canvas_width, (1 - (macd['dem'][data[0]-1] - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
+                        fill='purple', width=1
+                    )
+            
+            # draw volume
+            if self.frame_volume.winfo_width() != 0 and self.frame_volume.winfo_height() != 0:
+                volume = data[1]['<VOL>']
+                self.frame_volume.create_rectangle(
+                    x - width / 2, self.frame_volume.winfo_height(), x + width / 2, self.frame_volume.winfo_height() - volume / vol_max * self.frame_volume.winfo_height(),
+                    fill='blue', outline='gray'
+                )
+
+            # draw kdj
+            if self.frame_kdj.winfo_width() != 0 and self.frame_kdj.winfo_height() != 0:
+                k = kdj['k'][data[0]]
+                d = kdj['d'][data[0]]
+                j = kdj['j'][data[0]]
+                if k is not None and kdj['k'][data[0]-1] is not None:
+                    self.frame_kdj.create_line(
+                        x, (1 - (k - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                        (i-1) / length * canvas_width, (1 - (kdj['k'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                        fill='blue', width=1
+                    )
+                if d is not None and kdj['d'][data[0]-1] is not None:
+                    self.frame_kdj.create_line(
+                        x, (1 - (d - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                        (i-1) / length * canvas_width, (1 - (kdj['d'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                        fill='purple', width=1
+                    )
+                if j is not None and kdj['j'][data[0]-1] is not None:
+                    self.frame_kdj.create_line(
+                        x, (1 - (j - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                        (i-1) / length * canvas_width, (1 - (kdj['j'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                        fill='green', width=1
                     )
