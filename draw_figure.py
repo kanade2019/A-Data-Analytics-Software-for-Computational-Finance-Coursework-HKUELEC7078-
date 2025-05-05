@@ -35,23 +35,21 @@ class Figures(tk.Frame):
         # self.loading_mask.lift()
         self.loading_mask.place_forget()
         self.loading_text.place(relx=0.5, rely=0.5, anchor="center")
+        self.show_ma_bollinger = tk.StringVar(value="")
 
-        self.frame_macd = tk.Canvas(self, bg="white")
-        # self.frame_macd.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
-        self.frame_macd.place_forget()
-        self.frame_volume = tk.Canvas(self, bg="white")
-        self.frame_volume.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
-        # self.frame_volume.place_forget()
-        self.frame_kdj = tk.Canvas(self, bg="white")
-        # self.frame_kdj.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
-        self.frame_kdj.place_forget()
-        
         self.frame_Kline = tk.Canvas(self, bg="white")
         self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
-        self.day_line = {'frame_kline': None, 'frame_macd': None, 'frame_volume': None, 'frame_kdj': None}
+        self.day_line = {'frame_kline': None, 'frame_macd': None, 'frame_volume': None, 'frame_kdj': None, 'frame_rsi': None}
         self.moving_average_info = None
         self.day_info = None
 
+        self.frame_volume = tk.Canvas(self, bg="white")
+        self.frame_macd = tk.Canvas(self, bg="white")
+        self.frame_kdj = tk.Canvas(self, bg="white")
+        self.frame_rsi = tk.Canvas(self, bg="white")
+        self.vol_macd_kdj_rsi = tk.StringVar(value="")
+        self.__change_figure()
+        
         try:
             self.cross_hair_button_icon = PIL.Image.open("icons/cross_hair.png")
             self.cross_hair_button_icon = self.cross_hair_button_icon.resize((25, 25))
@@ -106,7 +104,48 @@ class Figures(tk.Frame):
         self.frame_Kline.bind("<Motion>", self.__motion_event)
         self.frame_Kline.bind("<Configure>", self.__refresh_figure)
         self.bind("<Configure>", self.__refresh_frame)
+        # self.frame_volume.bind("<Configure>", self.__refresh_figure)
+        # self.frame_macd.bind("<Configure>", self.__refresh_figure)
+        # self.frame_kdj.bind("<Configure>", self.__refresh_figure)
+        # self.frame_rsi.bind("<Configure>", self.__refresh_figure)
+        self.show_ma_bollinger.trace_add("write", self.__refresh_figure)
+        self.vol_macd_kdj_rsi.trace_add("write", self.__change_figure)
         # self.cross_hair_button.bind("<Button-1>", self.__press_cross_hair_button)
+
+    def __change_figure(self, *args):
+        t = self.vol_macd_kdj_rsi.get()
+        if t == 'vol':
+                self.frame_macd.place_forget()
+                self.frame_kdj.place_forget()
+                self.frame_rsi.place_forget()
+                self.frame_volume.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
+        elif t == 'macd':
+                self.frame_volume.place_forget()
+                self.frame_kdj.place_forget()
+                self.frame_rsi.place_forget()
+                self.frame_macd.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
+        elif t == 'kdj':
+                self.frame_volume.place_forget()
+                self.frame_macd.place_forget()
+                self.frame_rsi.place_forget()
+                self.frame_kdj.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
+        elif t == 'rsi':
+                self.frame_volume.place_forget()
+                self.frame_macd.place_forget()
+                self.frame_kdj.place_forget()
+                self.frame_rsi.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
+        else:
+                self.frame_volume.place_forget()
+                self.frame_macd.place_forget()
+                self.frame_kdj.place_forget()
+                self.frame_rsi.place_forget()
+                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.95, anchor="nw")
+        # print(self.frame_volume.winfo_height(), self.frame_macd.winfo_height(), self.frame_kdj.winfo_height(), self.frame_rsi.winfo_height())
+        self.after(10, self.__refresh_figure)
 
     def __change_scale(self, event=None, s='D'):
         if self.scale_status == s:
@@ -177,6 +216,8 @@ class Figures(tk.Frame):
             self.frame_volume.delete(self.day_line['frame_volume'])
         if self.day_line['frame_kdj'] is not None:
             self.frame_kdj.delete(self.day_line['frame_kdj'])
+        if self.day_line['frame_rsi'] is not None:
+            self.frame_rsi.delete(self.day_line['frame_rsi'])
         if self.cross_hair_button_flag:
             # x axis
             start_date = self.data.data_daily.data['<DATE>'].iloc[round(self.start_index)]
@@ -241,6 +282,11 @@ class Figures(tk.Frame):
                 self.day_line['frame_kdj'] = self.frame_kdj.create_line(
                     x, 0,
                     x, self.frame_kdj.winfo_height(),
+                    fill="gray", width=1.5, dash=(2, 2)
+                )
+                self.day_line['frame_rsi'] = self.frame_rsi.create_line(
+                    x, 0,
+                    x, self.frame_rsi.winfo_height(),
                     fill="gray", width=1.5, dash=(2, 2)
                 )
                 if self.day_info is not None:
@@ -345,7 +391,7 @@ class Figures(tk.Frame):
         self.__refresh_figure()
         return
 
-    def __refresh_figure(self, event=None):
+    def __refresh_figure(self, *args):
         if self.data.data_daily.data is None:
             return
 
@@ -354,6 +400,7 @@ class Figures(tk.Frame):
         self.frame_macd.delete("all")
         self.frame_volume.delete("all")
         self.frame_kdj.delete("all")
+        self.frame_rsi.delete("all")
 
         start_date = self.data.data_daily.data['<DATE>'].iloc[round(self.start_index)]
         end_date = self.data.data_daily.data['<DATE>'].iloc[round(self.end_index)]
@@ -367,6 +414,7 @@ class Figures(tk.Frame):
                 ma20 = self.data.data_daily.ma20
                 macd = self.data.data_daily.macd
                 kdj = self.data.data_daily.kdj
+                rsi = self.data.data_daily.rsi
 
             case "W":
                 filtered_data = self.data.data_weekly.data[(self.data.data_weekly.data['<DATE>'] >= start_date - pd.Timedelta(days=7)) & (self.data.data_weekly.data['<DATE>'] <= end_date + pd.Timedelta(days=7))]
@@ -376,6 +424,7 @@ class Figures(tk.Frame):
                 ma20 = self.data.data_weekly.ma20
                 macd = self.data.data_weekly.macd
                 kdj = self.data.data_weekly.kdj
+                rsi = self.data.data_weekly.rsi
 
             case "M":
                 filtered_data = self.data.data_monthly.data[(self.data.data_monthly.data['<DATE>'] >= start_date - pd.Timedelta(days=30)) & (self.data.data_monthly.data['<DATE>'] <= end_date + pd.Timedelta(days=30))]
@@ -385,6 +434,7 @@ class Figures(tk.Frame):
                 ma20 = self.data.data_monthly.ma20
                 macd = self.data.data_monthly.macd
                 kdj = self.data.data_monthly.kdj
+                rsi = self.data.data_monthly.rsi
 
         if filtered_data.empty:
             return
@@ -399,20 +449,24 @@ class Figures(tk.Frame):
         if index_max == round(self.end_index):
             length += 1
         width = 0.7 * canvas_width / length
-        y_min = min(filtered_data['<LOW>']*0.99)
-        y_max = max(filtered_data['<HIGH>']*1.01)
+        y_min = np.nanmin(filtered_data['<LOW>']*0.99)
+        y_max = np.nanmax(filtered_data['<HIGH>']*1.01)
         self.y_min = y_min
         self.y_max = y_max
-        osc_max = max(abs(macd['osc'][index_min: index_max+1])) * 1.1
-        dif_dem_max = max(max(macd['dif'][index_min: index_max+1]), max(macd['dem'][index_min: index_max+1]))
-        dif_dem_min = min(min(macd['dif'][index_min: index_max+1]), min(macd['dem'][index_min: index_max+1]))
+        osc_max = np.nanmax(abs(macd['osc'][index_min: index_max+1])) * 1.1
+        dif_dem_max = max(np.nanmax(macd['dif'][index_min: index_max+1]), np.nanmax(macd['dem'][index_min: index_max+1]))
+        dif_dem_min = min(np.nanmin(macd['dif'][index_min: index_max+1]), np.nanmin(macd['dem'][index_min: index_max+1]))
         dif_dem_max = dif_dem_max + (dif_dem_max - dif_dem_min) * 0.1
         dif_dem_min = dif_dem_min - (dif_dem_max - dif_dem_min) * 0.1
         vol_max = max(filtered_data['<VOL>']) * 1.1
-        kdj_max = max(max(kdj['k'][index_min: index_max+1]), max(kdj['d'][index_min: index_max+1]), max(kdj['j'][index_min: index_max+1]))
-        kdj_min = min(min(kdj['k'][index_min: index_max+1]), min(kdj['d'][index_min: index_max+1]), min(kdj['j'][index_min: index_max+1]))
+        kdj_max = max(np.nanmax(kdj['k'][index_min: index_max+1]), np.nanmax(kdj['d'][index_min: index_max+1]), np.nanmax(kdj['j'][index_min: index_max+1]))
+        kdj_min = min(np.nanmin(kdj['k'][index_min: index_max+1]), np.nanmin(kdj['d'][index_min: index_max+1]), np.nanmin(kdj['j'][index_min: index_max+1]))
         kdj_max = kdj_max + (kdj_max - kdj_min) * 0.1
         kdj_min = kdj_min - (kdj_max - kdj_min) * 0.1
+        rsi_max = max(np.nanmax(rsi['6'][index_min: index_max+1]), np.nanmax(rsi['14'][index_min: index_max+1]))
+        rsi_min = min(np.nanmin(rsi['6'][index_min: index_max+1]), np.nanmin(rsi['14'][index_min: index_max+1]))
+        rsi_max = rsi_max + (rsi_max - rsi_min) * 0.1
+        rsi_min = rsi_min - (rsi_max - rsi_min) * 0.1
         
         self.frame_macd.create_line(
             0, self.frame_macd.winfo_height()/2, self.frame_macd.winfo_width(), self.frame_macd.winfo_height()/2,
@@ -433,6 +487,28 @@ class Figures(tk.Frame):
         self.frame_volume.create_text(
             5, self.frame_volume.winfo_height()/3*2,
             text=f"{round(vol_max*0.333/1000000, 2)}M", fill="gray", anchor="nw", font=tkFont.Font(family="Arial", size=8, weight="bold")
+        )
+        # legend
+        self.frame_rsi.create_text(
+            self.frame_rsi.winfo_width()-5, 5,
+            text=f"RSI(6)", fill="blue", anchor="ne", font=tkFont.Font(family="Arial", size=8, weight="bold")
+        )
+        self.frame_rsi.create_text(
+            self.frame_rsi.winfo_width()-5, 25,
+            text=f"RSI(14)", fill="purple", anchor="ne", font=tkFont.Font(family="Arial", size=8, weight="bold")
+        )
+
+        self.frame_kdj.create_text(
+            self.frame_kdj.winfo_width()-5, 5,
+            text=f"KDJ(K)", fill="blue", anchor="ne", font=tkFont.Font(family="Arial", size=8, weight="bold")
+        )
+        self.frame_kdj.create_text(
+            self.frame_kdj.winfo_width()-5, 25,
+            text=f"KDJ(D)", fill="purple", anchor="ne", font=tkFont.Font(family="Arial", size=8, weight="bold")
+        )
+        self.frame_kdj.create_text(
+            self.frame_kdj.winfo_width()-5, 45,
+            text=f"KDJ(J)", fill="green", anchor="ne", font=tkFont.Font(family="Arial", size=8, weight="bold")
         )
 
         for i, data in enumerate(filtered_data.iterrows()):
@@ -461,85 +537,128 @@ class Figures(tk.Frame):
                 x - width / 2, y_open, x + width / 2, y_close,
                 fill=color, outline=color
             )
-
-            # draw moving average lines and bollinger bands
-            if data[0] < 4:
-                continue
-            if ma20[data[0]] is not None and ma20[data[0]-1] is not None:
-                self.frame_Kline.create_line(
-                    x, canvas_height - (ma20[data[0]] - y_min) / (y_max - y_min) * canvas_height, 
-                    (i-1) / length * canvas_width, canvas_height - (ma20[data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
-                    fill='blue', width=1
-                )
-            if bollinger_bands['upper'][data[0]] is not None and bollinger_bands['upper'][data[0]-1] is not None:
-                self.frame_Kline.create_line(
-                    x, canvas_height - (bollinger_bands['upper'][data[0]] - y_min) / (y_max - y_min) * canvas_height, 
-                    (i-1) / length * canvas_width, canvas_height - (bollinger_bands['upper'][data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
-                    fill='orange', width=1
-                )
-            if bollinger_bands['lower'][data[0]] is not None and bollinger_bands['lower'][data[0]-1] is not None:
-                self.frame_Kline.create_line(
-                    x, canvas_height - (bollinger_bands['lower'][data[0]] - y_min) / (y_max - y_min) * canvas_height, 
-                    (i-1) / length * canvas_width, canvas_height - (bollinger_bands['lower'][data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
-                    fill='purple', width=1
-                )
-
-            # draw macd
-            if self.frame_macd.winfo_width() != 0 and self.frame_macd.winfo_height() != 0:
-                ocs = macd['osc'][data[0]]
-                if ocs > 0:
-                    self.frame_macd.create_rectangle(
-                        x - width / 2, self.frame_macd.winfo_height()/2, x + width / 2, self.frame_macd.winfo_height()/2 - ocs / osc_max * self.frame_macd.winfo_height()/2,
-                        fill='red', outline='red'
-                    )
-                else:
-                    self.frame_macd.create_rectangle(
-                        x - width / 2, self.frame_macd.winfo_height()/2, x + width / 2, self.frame_macd.winfo_height()/2 - ocs / osc_max * self.frame_macd.winfo_height()/2,
-                        fill='green', outline='green'
-                    )
-                dif = macd['dif'][data[0]]
-                dem = macd['dem'][data[0]]
-                if dif is not None and macd['dif'][data[0]-1] is not None:
-                    self.frame_macd.create_line(
-                        x, (1 - (dif - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
-                        (i-1) / length * canvas_width, (1 - (macd['dif'][data[0]-1] - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
-                        fill='blue', width=1
-                    )
-                if dem is not None and macd['dem'][data[0]-1] is not None:
-                    self.frame_macd.create_line(
-                        x, (1 - (dem - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
-                        (i-1) / length * canvas_width, (1 - (macd['dem'][data[0]-1] - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
-                        fill='purple', width=1
-                    )
             
             # draw volume
-            if self.frame_volume.winfo_width() != 0 and self.frame_volume.winfo_height() != 0:
+            if self.frame_volume.winfo_width() > 1 and self.frame_volume.winfo_height() > 1 and vol_max > 0:
                 volume = data[1]['<VOL>']
                 self.frame_volume.create_rectangle(
                     x - width / 2, self.frame_volume.winfo_height(), x + width / 2, self.frame_volume.winfo_height() - volume / vol_max * self.frame_volume.winfo_height(),
                     fill='blue', outline='gray'
                 )
 
+            if data[0] == 0:
+                continue
+            # draw moving average lines
+            if self.show_ma_bollinger.get() == "ma":
+                if (not np.isnan(ma5[data[0]])) or  (not np.isnan(ma5[data[0]-1])) and (y_max > y_min):
+                    self.frame_Kline.create_line(
+                        x, canvas_height - (ma5[data[0]] - y_min) / (y_max - y_min) * canvas_height, 
+                        (i-1) / length * canvas_width, canvas_height - (ma5[data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
+                        fill='red', width=1
+                    )
+                if (not np.isnan(ma10[data[0]])) or  (not np.isnan(ma10[data[0]-1])) and (y_max > y_min):
+                    self.frame_Kline.create_line(
+                        x, canvas_height - (ma10[data[0]] - y_min) / (y_max - y_min) * canvas_height, 
+                        (i-1) / length * canvas_width, canvas_height - (ma10[data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
+                        fill='green', width=1
+                    )
+                if (not np.isnan(ma20[data[0]])) or  (not np.isnan(ma20[data[0]-1])) and (y_max > y_min):
+                    self.frame_Kline.create_line(
+                        x, canvas_height - (ma20[data[0]] - y_min) / (y_max - y_min) * canvas_height, 
+                        (i-1) / length * canvas_width, canvas_height - (ma20[data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
+                        fill='blue', width=1
+                    )
+            # draw bollinger bands
+            if self.show_ma_bollinger.get() == "bollinger":
+                if (not np.isnan(ma20[data[0]])) or  (not np.isnan(ma20[data[0]-1])) and (y_max > y_min):
+                    self.frame_Kline.create_line(
+                        x, canvas_height - (ma20[data[0]] - y_min) / (y_max - y_min) * canvas_height, 
+                        (i-1) / length * canvas_width, canvas_height - (ma20[data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
+                        fill='blue', width=1
+                    )
+                if (not np.isnan(bollinger_bands['upper'][data[0]])) or  (not np.isnan(bollinger_bands['upper'][data[0]-1])) and (y_max > y_min):
+                    self.frame_Kline.create_line(
+                        x, canvas_height - (bollinger_bands['upper'][data[0]] - y_min) / (y_max - y_min) * canvas_height, 
+                        (i-1) / length * canvas_width, canvas_height - (bollinger_bands['upper'][data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
+                        fill='orange', width=1
+                    )
+                if (not np.isnan(bollinger_bands['lower'][data[0]])) or  (not np.isnan(bollinger_bands['lower'][data[0]-1])) and (y_max > y_min):
+                    self.frame_Kline.create_line(
+                        x, canvas_height - (bollinger_bands['lower'][data[0]] - y_min) / (y_max - y_min) * canvas_height, 
+                        (i-1) / length * canvas_width, canvas_height - (bollinger_bands['lower'][data[0]-1] - y_min) / (y_max - y_min) * canvas_height, 
+                        fill='purple', width=1
+                    )
+
+            # draw macd
+            if self.frame_macd.winfo_width() > 1 and self.frame_macd.winfo_height() > 1:
+                osc = macd['osc'][data[0]]
+                if osc_max > 0:
+                    if osc > 0:
+                        self.frame_macd.create_rectangle(
+                            x - width / 2, self.frame_macd.winfo_height()/2, x + width / 2, self.frame_macd.winfo_height()/2 - osc / osc_max * self.frame_macd.winfo_height()/2,
+                            fill='red', outline='red'
+                        )
+                    else:
+                        self.frame_macd.create_rectangle(
+                            x - width / 2, self.frame_macd.winfo_height()/2, x + width / 2, self.frame_macd.winfo_height()/2 - osc / osc_max * self.frame_macd.winfo_height()/2,
+                            fill='green', outline='green'
+                        )
+                dif = macd['dif'][data[0]]
+                dem = macd['dem'][data[0]]
+                if (dif_dem_max - dif_dem_min) > 0:
+                    if (not np.isnan(dif)) and (not np.isnan(macd['dif'][data[0]-1])):
+                        self.frame_macd.create_line(
+                            x, (1 - (dif - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
+                            (i-1) / length * canvas_width, (1 - (macd['dif'][data[0]-1] - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
+                            fill='blue', width=1
+                        )
+                    if (not np.isnan(dem)) and (not np.isnan(macd['dem'][data[0]-1])):
+                        self.frame_macd.create_line(
+                            x, (1 - (dem - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
+                            (i-1) / length * canvas_width, (1 - (macd['dem'][data[0]-1] - dif_dem_min) / (dif_dem_max - dif_dem_min)) * self.frame_macd.winfo_height(),
+                            fill='purple', width=1
+                        )
+
             # draw kdj
-            if self.frame_kdj.winfo_width() != 0 and self.frame_kdj.winfo_height() != 0:
+            if self.frame_kdj.winfo_width() > 1 and self.frame_kdj.winfo_height() > 1:
                 k = kdj['k'][data[0]]
                 d = kdj['d'][data[0]]
                 j = kdj['j'][data[0]]
-                if k is not None and kdj['k'][data[0]-1] is not None:
-                    self.frame_kdj.create_line(
-                        x, (1 - (k - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
-                        (i-1) / length * canvas_width, (1 - (kdj['k'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
-                        fill='blue', width=1
-                    )
-                if d is not None and kdj['d'][data[0]-1] is not None:
-                    self.frame_kdj.create_line(
-                        x, (1 - (d - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
-                        (i-1) / length * canvas_width, (1 - (kdj['d'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
-                        fill='purple', width=1
-                    )
-                if j is not None and kdj['j'][data[0]-1] is not None:
-                    self.frame_kdj.create_line(
-                        x, (1 - (j - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
-                        (i-1) / length * canvas_width, (1 - (kdj['j'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
-                        fill='green', width=1
-                    )
+                if (kdj_max - kdj_min) > 0:
+                    if (not np.isnan(k)) and (not np.isnan(kdj['k'][data[0]-1])):
+                        self.frame_kdj.create_line(
+                            x, (1 - (k - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                            (i-1) / length * canvas_width, (1 - (kdj['k'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                            fill='blue', width=1
+                        )
+                    if (not np.isnan(d)) and (not np.isnan(kdj['d'][data[0]-1])):
+                        self.frame_kdj.create_line(
+                            x, (1 - (d - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                            (i-1) / length * canvas_width, (1 - (kdj['d'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                            fill='purple', width=1
+                        )
+                    if (not np.isnan(j)) and (not np.isnan(kdj['j'][data[0]-1])):
+                        self.frame_kdj.create_line(
+                            x, (1 - (j - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                            (i-1) / length * canvas_width, (1 - (kdj['j'][data[0]-1] - kdj_min) / (kdj_max - kdj_min)) * self.frame_kdj.winfo_height(),
+                            fill='green', width=1
+                        )
+
+            # draw rsi
+            if self.frame_rsi.winfo_width() > 1 and self.frame_rsi.winfo_height() > 1:
+                rsi_6 = rsi['6'][data[0]]
+                rsi_14 = rsi['14'][data[0]]
+                if (rsi_max - rsi_min) > 0:
+                    if (not np.isnan(rsi_6)) and (not np.isnan(rsi['6'][data[0]-1])):
+                        self.frame_rsi.create_line(
+                            x, (1 - (rsi_6 - rsi_min) / (rsi_max - rsi_min)) * self.frame_rsi.winfo_height(),
+                            (i-1) / length * canvas_width, (1 - (rsi['6'][data[0]-1] - rsi_min) / (rsi_max - rsi_min)) * self.frame_rsi.winfo_height(),
+                            fill='blue', width=1
+                        )
+                    if (not np.isnan(rsi_14)) and (not np.isnan(rsi['14'][data[0]-1])):
+                        self.frame_rsi.create_line(
+                            x, (1 - (rsi_14 - rsi_min) / (rsi_max - rsi_min)) * self.frame_rsi.winfo_height(),
+                            (i-1) / length * canvas_width, (1 - (rsi['14'][data[0]-1] - rsi_min) / (rsi_max - rsi_min)) * self.frame_rsi.winfo_height(),
+                            fill='purple', width=1
+                        )
+        
