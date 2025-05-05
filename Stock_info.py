@@ -18,6 +18,7 @@ class StockInfo(tk.Frame):
         self.hsbar = ttk.Scrollbar(self, orient="horizontal", command=self.treeview.xview)
 
         self.search_entry = ttk.Entry(self, font=self.my_font, width=self.winfo_width(), justify="left")
+        self.search_entry.insert(0, "Search...")
         self.treeview.configure(yscrollcommand=self.vsbar.set, xscrollcommand=self.hsbar.set)
         
         # self.search_entry.place(relx=0, rely=0, relwidth=1, height=35, anchor="nw")
@@ -45,6 +46,20 @@ class StockInfo(tk.Frame):
 
         # bind events
         self.search_entry.bind("<KeyRelease>", self.__search)
+        self.search_entry.bind("<FocusIn>", self.__focus_in)
+        self.search_entry.bind("<FocusOut>", self.__focus_out)
+
+    def __focus_in(self, event):
+        """Handle focus in event for the search entry."""
+        if self.search_entry.get() == "Search...":
+            self.search_entry.delete(0, tk.END)
+            self.search_entry.config(fg="black")
+
+    def __focus_out(self, event):
+        """Handle focus out event for the search entry."""
+        if self.search_entry.get() == "":
+            self.search_entry.insert(0, "Search...")
+            self.search_entry.config(fg="grey")
 
     def __search(self, event):
         """Search for a ticker in the treeview."""

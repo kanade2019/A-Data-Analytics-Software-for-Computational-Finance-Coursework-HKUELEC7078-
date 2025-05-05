@@ -8,6 +8,7 @@ import math
 import time
 from data import Data
 import threading
+from Tech_indic import TechIndic
 
 class Main_Window(tk.Tk):
     def __init__(self):
@@ -26,7 +27,7 @@ class Main_Window(tk.Tk):
         # self.frame_info.place(relx=0, rely=0.5, relwidth=1, relheight=0.25, anchor="nw")
         self.frame_info.place_forget()
         self.frame_info.hidden = True
-        self.frame_indicators = ttk.Frame(self.frame_left)
+        self.frame_indicators = TechIndic(self.frame_left)
         self.frame_indicators.place(relx=0, rely=0.75, relwidth=1, relheight=0.25, anchor="nw")
 
         self.frame_right = Figures(self)
@@ -38,7 +39,18 @@ class Main_Window(tk.Tk):
         self.frame_info.close_button.bind("<Button-1>", self.__close_single_info)
         self.frame_table.treeview.bind("<ButtonRelease-1>", self.__select_company)
         self.frame_table.treeview.bind("<KeyRelease>", self.__select_company)
+        self.frame_indicators.ma_bollinger.trace_add("write", self.__update_indicator)
+        self.frame_indicators.vol_macd_kdj_rsi.trace_add("write", self.__update_indicator)
         return
+
+    def __update_indicator(self, *args):
+        """更新显示的技术指标"""
+        selected_indicator = self.frame_indicators.ma_bollinger.get()
+        selected_indicator2 = self.frame_indicators.vol_macd_kdj_rsi.get()
+        # print(selected_indicator, selected_indicator2)
+        self.frame_right.show_ma_bollinger.set(selected_indicator)
+        
+        self.frame_right.vol_macd_kdj_rsi.set(selected_indicator2)
 
     def __close_single_info(self, event):
         """开始关闭动画"""
