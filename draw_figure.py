@@ -40,7 +40,7 @@ class Figures(tk.Frame):
         self.frame_Kline = tk.Canvas(self, bg="white")
         self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
         self.day_line = {'frame_kline': None, 'frame_macd': None, 'frame_volume': None, 'frame_kdj': None, 'frame_rsi': None}
-        self.moving_average_info = None
+        self.moving_averages_info = [None, None, None]
         self.day_info = None
 
         self.frame_volume = tk.Canvas(self, bg="white")
@@ -240,25 +240,56 @@ class Figures(tk.Frame):
             try:
                 day = filtered_data.iloc[x]['<DATE>']
                 # show moving average
-                if self.moving_average_info is not None:
-                    self.frame_Kline.delete(self.moving_average_info)
+                for moving_average_info in self.moving_averages_info:
+                    if moving_average_info is not None:
+                        self.frame_Kline.delete(moving_average_info)
                 if self.scale_status == "D":
-                    self.moving_average_info = self.frame_Kline.create_text(
+                    self.moving_averages_info[0] = self.frame_Kline.create_text(
                         1, 0,
-                        text=f"MA5: {self.data.data_daily.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_daily.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_daily.ma20[filtered_data.index[x]]:.2f}",
-                        fill="black", anchor="nw", font=("Arial", 8)
+                        text=f"MA5: {self.data.data_daily.ma5[filtered_data.index[x]]:.2f},",
+                        fill="red", anchor="nw", font=("Arial", 8)
+                    )
+                    self.moving_averages_info[1] = self.frame_Kline.create_text(
+                        self.frame_Kline.bbox(self.moving_averages_info[0])[2]+1, 0,
+                        text=f"MA10: {self.data.data_daily.ma10[filtered_data.index[x]]:.2f},",
+                        fill="blue", anchor="nw", font=("Arial", 8)
+                    )
+                    self.moving_averages_info[2] = self.frame_Kline.create_text(
+                        self.frame_Kline.bbox(self.moving_averages_info[1])[2]+1, 0,
+                        text=f"MA20: {self.data.data_daily.ma20[filtered_data.index[x]]:.2f}",
+                        fill="green", anchor="nw", font=("Arial", 8)
                     )
                 elif self.scale_status == "W":
-                    self.moving_average_info = self.frame_Kline.create_text(
+                    self.moving_averages_info[0] = self.frame_Kline.create_text(
                         1, 0,
-                        text=f"MA5: {self.data.data_weekly.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_weekly.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_weekly.ma20[filtered_data.index[x]]:.2f}",
-                        fill="black", anchor="nw", font=("Arial", 8)
+                        text=f"MA5: {self.data.data_weekly.ma5[filtered_data.index[x]]:.2f},",
+                        fill="red", anchor="nw", font=("Arial", 8)
+                    )
+                    self.moving_averages_info[1] = self.frame_Kline.create_text(
+                        self.frame_Kline.bbox(self.moving_averages_info[0])[2]+1, 0,
+                        text=f"MA10: {self.data.data_weekly.ma10[filtered_data.index[x]]:.2f},",
+                        fill="blue", anchor="nw", font=("Arial", 8)
+                    )
+                    self.moving_averages_info[2] = self.frame_Kline.create_text(
+                        self.frame_Kline.bbox(self.moving_averages_info[1])[2]+1, 0,
+                        text=f"MA20: {self.data.data_weekly.ma20[filtered_data.index[x]]:.2f}",
+                        fill="green", anchor="nw", font=("Arial", 8)
                     )
                 elif self.scale_status == "M":
-                    self.moving_average_info = self.frame_Kline.create_text(
+                    self.moving_averages_info[0] = self.frame_Kline.create_text(
                         1, 0,
-                        text=f"MA5: {self.data.data_monthly.ma5[filtered_data.index[x]]:.2f}, MA10: {self.data.data_monthly.ma10[filtered_data.index[x]]:.2f}, MA20: {self.data.data_monthly.ma20[filtered_data.index[x]]:.2f}",
-                        fill="black", anchor="nw", font=("Arial", 8)
+                        text=f"MA5: {self.data.data_monthly.ma5[filtered_data.index[x]]:.2f},",
+                        fill="red", anchor="nw", font=("Arial", 8)
+                    )
+                    self.moving_averages_info[1] = self.frame_Kline.create_text(
+                        self.frame_Kline.bbox(self.moving_averages_info[0])[2]+1, 0,
+                        text=f"MA10: {self.data.data_monthly.ma10[filtered_data.index[x]]:.2f},",
+                        fill="blue", anchor="nw", font=("Arial", 8)
+                    )
+                    self.moving_averages_info[2] = self.frame_Kline.create_text(
+                        self.frame_Kline.bbox(self.moving_averages_info[1])[2]+1, 0,
+                        text=f"MA20: {self.data.data_monthly.ma20[filtered_data.index[x]]:.2f}",
+                        fill="green", anchor="nw", font=("Arial", 8)
                     )
                 if round(self.end_index) == filtered_data.index[-1]:
                     x = x / filtered_data.shape[0] * self.frame_Kline.winfo_width()
