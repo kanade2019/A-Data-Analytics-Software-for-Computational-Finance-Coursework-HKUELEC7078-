@@ -47,7 +47,8 @@ class Figures(tk.Frame):
         self.frame_macd = tk.Canvas(self, bg="white")
         self.frame_kdj = tk.Canvas(self, bg="white")
         self.frame_rsi = tk.Canvas(self, bg="white")
-        self.vol_macd_kdj_rsi = tk.StringVar(value="")
+        self.frame_list = [self.frame_volume, self.frame_macd, self.frame_kdj, self.frame_rsi]
+        self.frame_enabled = [tk.BooleanVar(value=False) for _ in range(len(self.frame_list))]
         self.__change_figure()
         
         try:
@@ -109,42 +110,41 @@ class Figures(tk.Frame):
         # self.frame_kdj.bind("<Configure>", self.__refresh_figure)
         # self.frame_rsi.bind("<Configure>", self.__refresh_figure)
         self.show_ma_bollinger.trace_add("write", self.__refresh_figure)
-        self.vol_macd_kdj_rsi.trace_add("write", self.__change_figure)
+        for flag in self.frame_enabled:
+            flag.trace_add("write", self.__change_figure)
         # self.cross_hair_button.bind("<Button-1>", self.__press_cross_hair_button)
 
     def __change_figure(self, *args):
-        t = self.vol_macd_kdj_rsi.get()
-        if t == 'vol':
-                self.frame_macd.place_forget()
-                self.frame_kdj.place_forget()
-                self.frame_rsi.place_forget()
-                self.frame_volume.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
-                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
-        elif t == 'macd':
-                self.frame_volume.place_forget()
-                self.frame_kdj.place_forget()
-                self.frame_rsi.place_forget()
-                self.frame_macd.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
-                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
-        elif t == 'kdj':
-                self.frame_volume.place_forget()
-                self.frame_macd.place_forget()
-                self.frame_rsi.place_forget()
-                self.frame_kdj.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
-                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
-        elif t == 'rsi':
-                self.frame_volume.place_forget()
-                self.frame_macd.place_forget()
-                self.frame_kdj.place_forget()
-                self.frame_rsi.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
-                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
-        else:
-                self.frame_volume.place_forget()
-                self.frame_macd.place_forget()
-                self.frame_kdj.place_forget()
-                self.frame_rsi.place_forget()
-                self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.95, anchor="nw")
-        # print(self.frame_volume.winfo_height(), self.frame_macd.winfo_height(), self.frame_kdj.winfo_height(), self.frame_rsi.winfo_height())
+        num_of_figures = np.sum([bool(i.get()) for i in self.frame_enabled])
+        if num_of_figures == 0:
+            self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.95, anchor="nw")
+            for frame in self.frame_list:
+                frame.place_forget()
+        elif num_of_figures == 1:
+            self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.75, anchor="nw")
+            for i, frame in enumerate(self.frame_list):
+                if self.frame_enabled[i].get():
+                    frame.place(relx=0, rely=0.8, relwidth=1, relheight=0.2, anchor="nw")
+                else:
+                    frame.place_forget()
+        elif num_of_figures == 2:
+            self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.55, anchor="nw")
+            start_y = 0.6
+            for i, frame in enumerate(self.frame_list):
+                if self.frame_enabled[i].get():
+                    frame.place(relx=0, rely=start_y, relwidth=1, relheight=0.2, anchor="nw")
+                    start_y += 0.2
+                else:
+                    frame.place_forget()
+        elif num_of_figures == 3:
+            self.frame_Kline.place(relx=0, rely=0.05, relwidth=1, relheight=0.35, anchor="nw")
+            start_y = 0.4
+            for i, frame in enumerate(self.frame_list):
+                if self.frame_enabled[i].get():
+                    frame.place(relx=0, rely=start_y, relwidth=1, relheight=0.2, anchor="nw")
+                    start_y += 0.2
+                else:
+                    frame.place_forget()
         self.after(10, self.__refresh_figure)
 
     def __change_scale(self, event=None, s='D'):
@@ -446,6 +446,9 @@ class Figures(tk.Frame):
                 macd = self.data.data_daily.macd
                 kdj = self.data.data_daily.kdj
                 rsi = self.data.data_daily.rsi
+                length = filtered_data.shape[0] - 1
+                if filtered_data.index[-1] == self.data.data_daily.data.index[-1]:
+                    length += 1
 
             case "W":
                 filtered_data = self.data.data_weekly.data[(self.data.data_weekly.data['<DATE>'] >= start_date - pd.Timedelta(days=7)) & (self.data.data_weekly.data['<DATE>'] <= end_date + pd.Timedelta(days=7))]
@@ -456,6 +459,9 @@ class Figures(tk.Frame):
                 macd = self.data.data_weekly.macd
                 kdj = self.data.data_weekly.kdj
                 rsi = self.data.data_weekly.rsi
+                length = filtered_data.shape[0] - 1
+                if filtered_data.index[-1] == self.data.data_weekly.data.index[-1]:
+                    length += 1
 
             case "M":
                 filtered_data = self.data.data_monthly.data[(self.data.data_monthly.data['<DATE>'] >= start_date - pd.Timedelta(days=30)) & (self.data.data_monthly.data['<DATE>'] <= end_date + pd.Timedelta(days=30))]
@@ -466,6 +472,9 @@ class Figures(tk.Frame):
                 macd = self.data.data_monthly.macd
                 kdj = self.data.data_monthly.kdj
                 rsi = self.data.data_monthly.rsi
+                length = filtered_data.shape[0] - 1
+                if filtered_data.index[-1] == self.data.data_monthly.data.index[-1]:
+                    length += 1
 
         if filtered_data.empty:
             return
@@ -474,11 +483,8 @@ class Figures(tk.Frame):
         canvas_width = self.frame_Kline.winfo_width()
         canvas_height = self.frame_Kline.winfo_height()
 
-        length = filtered_data.shape[0] - 1
         index_min = filtered_data.index[0]
         index_max = filtered_data.index[-1]
-        if index_max == round(self.end_index):
-            length += 1
         width = 0.7 * canvas_width / length
         y_min = np.nanmin(filtered_data['<LOW>']*0.99)
         y_max = np.nanmax(filtered_data['<HIGH>']*1.01)

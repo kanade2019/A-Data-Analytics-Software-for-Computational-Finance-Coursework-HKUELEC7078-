@@ -6,7 +6,10 @@ class TechIndic(tk.Frame):
         super().__init__(master)
         self.master = master
         self.ma_bollinger = tk.StringVar(value="")
-        self.vol_macd_kdj_rsi = tk.StringVar(value="")
+        self.vol_enabled = tk.BooleanVar(value=False)
+        self.macd_enabled = tk.BooleanVar(value=False)
+        self.kdj_enabled = tk.BooleanVar(value=False)
+        self.rsi_enabled = tk.BooleanVar(value=False)
 
         # Store the value intended by the last click for each group
         self._toggled_ma_bollinger = ""
@@ -14,37 +17,32 @@ class TechIndic(tk.Frame):
 
         separator = ttk.Separator(self, orient='horizontal')
         # Place separator in row 1, spanning across 2 columns, add vertical padding
-        separator.grid(row=0, column=0, columnspan=2, sticky='ew', padx=5, pady=10)
+        separator.place(relx=0.5, rely=0.1, relwidth=1, anchor="n", y=3)
 
         # --- MA / Bollinger Group ---
         self.ma_button = ttk.Radiobutton(self, text="MA", value="ma", variable=self.ma_bollinger,
                                          command=lambda: self._handle_radio_toggle(self.ma_bollinger, "ma"))
-        self.ma_button.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        self.ma_button.place(relx=0.05, rely=0.243, anchor="nw")
 
         self.bollinger_button = ttk.Radiobutton(self, text="Bollinger Bands", value="bollinger", variable=self.ma_bollinger,
                                                 command=lambda: self._handle_radio_toggle(self.ma_bollinger, "bollinger"))
-        self.bollinger_button.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+        self.bollinger_button.place(relx=0.5, rely=0.243, anchor="nw")
 
         separator2 = ttk.Separator(self, orient='horizontal')
         # Place separator in row 1, spanning across 2 columns, add vertical padding
-        separator2.grid(row=2, column=0, columnspan=2, sticky='ew', padx=5, pady=10)
+        separator2.place(relx=0.5, rely=0.386, relwidth=1, anchor="n", y=3)
+        self.mention_label = ttk.Label(self, text="Select up to three parameters", font=("Arial", 10, "bold"))
+        self.mention_label.place(relx=0.5, rely=0.523, anchor="n")
 
         # --- Volume / MACD / KDJ / RSI Group ---
-        self.vol_button = ttk.Radiobutton(self, text="Volume", value="vol", variable=self.vol_macd_kdj_rsi,
-                                          command=lambda: self._handle_radio_toggle(self.vol_macd_kdj_rsi, "vol"))
-        self.vol_button.grid(row=3, column=0, padx=5, pady=5, sticky="w")
-
-        self.macd_button = ttk.Radiobutton(self, text="MACD", value="macd", variable=self.vol_macd_kdj_rsi,
-                                           command=lambda: self._handle_radio_toggle(self.vol_macd_kdj_rsi, "macd"))
-        self.macd_button.grid(row=3, column=1, padx=5, pady=5, sticky="w")
-
-        self.kdj_button = ttk.Radiobutton(self, text="KDJ", value="kdj", variable=self.vol_macd_kdj_rsi,
-                                          command=lambda: self._handle_radio_toggle(self.vol_macd_kdj_rsi, "kdj"))
-        self.kdj_button.grid(row=4, column=0, padx=5, pady=5, sticky="w")
-
-        self.rsi_button = ttk.Radiobutton(self, text="RSI", value="rsi", variable=self.vol_macd_kdj_rsi,
-                                          command=lambda: self._handle_radio_toggle(self.vol_macd_kdj_rsi, "rsi"))
-        self.rsi_button.grid(row=4, column=1, padx=5, pady=5, sticky="w")
+        self.vol_button = ttk.Checkbutton(self, text="Volume", variable=self.vol_enabled)
+        self.vol_button.place(relx=0.05, rely=0.671, anchor="nw")
+        self.macd_button = ttk.Checkbutton(self, text="MACD", variable=self.macd_enabled)
+        self.macd_button.place(relx=0.5, rely=0.671, anchor="nw")
+        self.kdj_button = ttk.Checkbutton(self, text="KDJ", variable=self.kdj_enabled)
+        self.kdj_button.place(relx=0.05, rely=0.814, anchor="nw")
+        self.rsi_button = ttk.Checkbutton(self, text="RSI", variable=self.rsi_enabled)
+        self.rsi_button.place(relx=0.5, rely=0.814, anchor="nw")
 
     def _handle_radio_toggle(self, variable, button_value):
         """
